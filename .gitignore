@@ -1,0 +1,72 @@
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+*.manifest
+*.spec
+
+# ─── Virtual environments ─────────────────────────────────
+.venv/
+venv/
+ENV/
+env/
+
+# ─── IDE / Editor ─────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ─── OS files ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ─── Workspace data (user-generated projects & datasets) ──
+workspace/
+
+# ─── PyTorch / Training artifacts ─────────────────────────
+*.ckpt
+*.pt
+*.pth
+lightning_logs/
+
+# ─── ONNX / Export artifacts ──────────────────────────────
+*.onnx
+*.engine
+*.trt
+
+# ─── Pytest / Coverage ────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ─── Ruff / Linting ──────────────────────────────────────
+.ruff_cache/
+
+# ─── mypy ─────────────────────────────────────────────────
+.mypy_cache/
+
+# ─── Jupyter ──────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ─── Environment variables ────────────────────────────────
+.env
+.env.*
+
+# ─── Misc ─────────────────────────────────────────────────
+*.log
+*.bak
+*.tmp
