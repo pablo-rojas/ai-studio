@@ -119,19 +119,28 @@ img_001.jpg,3.7
 img_002.jpg,1.2
 ```
 
+Multi-output example:
+
+```csv
+filename,value_0,value_1,value_2
+img_001.jpg,3.7,1.2,0.8
+img_002.jpg,3.1,1.0,0.9
+```
+
 ### Mapping
 
 | CSV Column | Internal Field |
 |-----------|---------------|
 | `filename` | `images[].filename` |
 | `label` | `class_name` → resolve `class_id` |
-| `value` | `annotations[].value` (float) |
+| `value` or `value_0..value_{k-1}` | `annotations[].values` (list of floats) |
 
 ### Notes
 
 - Column names are case-insensitive.
 - Extra columns are ignored with a warning.
 - Missing images or labels produce validation errors.
+- For regression, `value` maps to a single-output list (`[value]`). Multi-output uses indexed columns (`value_0`, `value_1`, ...).
 
 ---
 

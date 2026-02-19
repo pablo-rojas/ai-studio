@@ -16,12 +16,14 @@ ai-studio/
 │   │
 │   ├── api/                       # FastAPI routers (REST endpoints)
 │   │   ├── __init__.py
+│   │   ├── pages.py               # HTML page routes (Jinja2 templates)
 │   │   ├── projects.py            # /api/projects — CRUD, list, select
 │   │   ├── datasets.py            # /api/datasets — import, list, detail
 │   │   ├── splits.py              # /api/splits — create, list, manage
-│   │   ├── training.py            # /api/training — experiments, runs
+│   │   ├── training.py            # /api/training — experiments, training
 │   │   ├── evaluation.py          # /api/evaluation — configure, run, results
-│   │   └── export.py              # /api/export — trigger export, download
+│   │   ├── export.py              # /api/export — trigger export, download
+│   │   └── system.py              # /api/system — GPU info, workspace stats, health
 │   │
 │   ├── core/                      # Business logic (framework-agnostic)
 │   │   ├── __init__.py
@@ -100,12 +102,29 @@ ai-studio/
 │   │   │   ├── training.html      # 3-column training page
 │   │   │   ├── evaluation.html    # Evaluation config + results
 │   │   │   └── export.html        # Export page
+│   │   ├── fragments/              # HTMX partial fragments
+│   │   │   ├── project_list.html
+│   │   │   ├── project_card.html
+│   │   │   ├── image_grid.html
+│   │   │   ├── image_detail.html
+│   │   │   ├── split_list.html
+│   │   │   ├── split_preview.html
+│   │   │   ├── experiment_list.html
+│   │   │   ├── hparam_form.html
+│   │   │   ├── training_results.html
+│   │   │   ├── eval_results.html
+│   │   │   ├── eval_image_detail.html
+│   │   │   ├── export_list.html
+│   │   │   ├── error_toast.html
+│   │   │   └── ...
 │   │   └── components/            # Reusable Jinja2 macros
-│   │       ├── image_grid.html
-│   │       ├── metric_chart.html
-│   │       ├── form_controls.html
-│   │       ├── progress_bar.html
-│   │       └── toast.html
+│   │       ├── topbar.html
+│   │       ├── navbar.html
+│   │       ├── pagination.html
+│   │       ├── modal.html
+│   │       ├── metric_card.html
+│   │       ├── chart.html
+│   │       └── ...
 │   │
 │   └── static/                    # Static assets
 │       ├── css/
@@ -192,7 +211,7 @@ Pure Python service functions. No FastAPI or HTTP dependencies. Each service:
 
 - `lightning_module.py`: a generic `LightningModule` that wraps any model from the catalog, configures optimizer/scheduler, and logs metrics.
 - `trainer_factory.py`: builds a `pl.Trainer` from an experiment config JSON (resolves device selection into accelerator/devices/strategy, sets precision, callbacks, max_epochs, etc.).
-- `callbacks.py`: custom Lightning callbacks — `JSONMetricLogger` writes per-epoch metrics to the run folder.
+- `callbacks.py`: custom Lightning callbacks — `JSONMetricLogger` writes per-epoch metrics to the experiment folder.
 - `losses.py`: registry mapping `(task, loss_name)` → loss function.
 
 ### `app/evaluation/` — Evaluation
@@ -214,13 +233,14 @@ Request/response schemas for the API and JSON file schemas for persistence. Each
 ### `app/storage/` — Filesystem Abstraction
 
 - `paths.py`: resolves absolute paths for any entity (project dir, dataset dir, run dir, etc.) given the workspace root + IDs.
-- `json_store.py`: generic read/write/update helpers for JSON metadata files with file locking.
+- `json_store.py`: generic read/write/update helpers for JSON metadata files with atomic write-to-temp + rename.
 
 ### `app/templates/` — Jinja2 Templates
 
 - `base.html`: common layout — horizontal navigation bar (Project / Dataset / Split / Training / Evaluation / Export), content area, footer.
 - `pages/`: one template per page.
-- `components/`: reusable macros that pages `{% include %}` or `{% call %}`.
+- `fragments/`: HTMX partial snippets returned by API endpoints and swapped into the DOM (e.g., `image_grid.html`, `error_toast.html`).
+- `components/`: reusable Jinja2 macros included server-side via `{% include %}` or `{% call %}` (e.g., `navbar.html`, `modal.html`).
 
 ### `app/static/` — Static Assets
 
@@ -308,9 +328,12 @@ dependencies = [
     "pytorch-lightning>=2.2",
     "onnx>=1.15",
     "onnxruntime>=1.17",
+    "onnxsim>=0.4",               # ONNX graph simplification
     "pillow>=10.0",
     "numpy>=1.26",
     "scikit-learn>=1.4",          # Stratified splits, metrics
+    "torchmetrics>=1.3",          # Metric computation
+    "shapely>=2.0",               # Polygon IoU (oriented object detection)
 ]
 
 [project.optional-dependencies]

@@ -34,13 +34,13 @@ For augmentations not available in torchvision v2 (e.g., `GridDistortion`, `Elas
       { "name": "RandomHorizontalFlip", "params": { "p": 0.5 } },
       { "name": "RandomRotation", "params": { "degrees": 15 } },
       { "name": "ColorJitter", "params": { "brightness": 0.2, "contrast": 0.2 } },
-      { "name": "ToTensor", "params": {} },
+      { "name": "ToImage", "params": {} },
       { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
     ],
     "val": [
       { "name": "Resize", "params": { "size": [256, 256] } },
       { "name": "CenterCrop", "params": { "size": [224, 224] } },
-      { "name": "ToTensor", "params": {} },
+      { "name": "ToImage", "params": {} },
       { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
     ]
   }
@@ -81,7 +81,7 @@ For augmentations not available in torchvision v2 (e.g., `GridDistortion`, `Elas
 
 | Name | Key Params | Notes |
 |------|-----------|-------|
-| `ToTensor` | — | PIL → Tensor, scale to [0, 1] |
+| `ToImage` | — | PIL / ndarray → Tensor (torchvision transforms v2) |
 | `Normalize` | `mean, std` | Channel-wise normalization |
 
 ### Advanced (future)
@@ -111,7 +111,7 @@ TRANSFORM_REGISTRY = {
     "RandomRotation": T.RandomRotation,
     "ColorJitter": T.ColorJitter,
     "GaussianBlur": T.GaussianBlur,
-    "ToTensor": T.ToImage,  # v2 equivalent
+    "ToImage": T.ToImage,
     "Normalize": T.Normalize,
     # ... etc
 }

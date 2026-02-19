@@ -1,6 +1,6 @@
 # Tasks — Instance Segmentation
 
-**Phase**: 4
+**Phase**: 21
 
 ---
 
@@ -91,7 +91,7 @@ Use COCO evaluation protocol via `torchmetrics.detection.MeanAveragePrecision` w
   { "name": "RandomHorizontalFlip", "params": { "p": 0.5 } },
   { "name": "RandomPhotometricDistort", "params": {} },
   { "name": "Resize", "params": { "size": [800, 800] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```

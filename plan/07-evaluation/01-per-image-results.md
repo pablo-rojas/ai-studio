@@ -6,7 +6,7 @@ This document describes how per-image predictions are stored and displayed.
 
 ## 1. Overview
 
-After running evaluation, each image's prediction is stored as a separate JSON file. This enables efficient pagination and individual image lookup in the GUI.
+After running evaluation, all per-image predictions are stored in a single `results.json` file inside the evaluation folder. This avoids creating thousands of tiny files for large datasets (10k+ images), which would be slow to list, sort, and paginate server-side.
 
 ---
 
@@ -74,7 +74,7 @@ After running evaluation, each image's prediction is stored as a separate JSON f
 ```json
 {
   "filename": "img_001.png",
-  "predicted_mask_path": "per_image/img_001_pred.png",
+  "predicted_mask_path": "pred_masks/img_001_pred.png",
   "pixel_accuracy": 0.94,
   "per_class_iou": { "background": 0.97, "road": 0.91, "building": 0.88 },
   "miou": 0.92
@@ -103,12 +103,14 @@ After running evaluation, each image's prediction is stored as a separate JSON f
 ```json
 {
   "filename": "img_001.png",
-  "ground_truth": 3.7,
-  "prediction": 3.5,
-  "error": -0.2,
-  "absolute_error": 0.2
+  "ground_truth": [3.7],
+  "prediction": [3.5],
+  "error": [-0.2],
+  "absolute_error": [0.2]
 }
 ```
+
+- Regression values are always stored as lists (single-output = list length 1, multi-output = list length > 1).
 
 ---
 
@@ -124,7 +126,7 @@ For the Evaluation page's per-image detail view, prediction overlays are rendere
 | Oriented OD | Rotated predicted boxes + GT boxes |
 | Segmentation | Predicted mask overlay + error map |
 | Instance Segmentation | Per-instance masks + boxes |
-| Regression | Predicted vs. actual value badge + error display |
+| Regression | Predicted vs. actual values badge + error display |
 
 ### Rendering Approach
 
@@ -155,7 +157,19 @@ The Evaluation page result grid supports:
 
 - Per-image results are loaded in pages (50 per page, configurable).
 - The API endpoint `/api/evaluation/{eval_id}/results` accepts `page`, `page_size`, `sort_by`, `filter_*` parameters.
-- The endpoint reads individual JSON files from `per_image/` and applies filters/sorting.
+- The endpoint reads `results.json`, applies filters/sorting in memory, and returns the requested page slice.
+- `results.json` contains a top-level `"results"` array with one entry per image.
+
+### `results.json` Structure
+
+```json
+{
+  "results": [
+    { "filename": "img_001.png", "...per-image fields..." },
+    { "filename": "img_002.png", "...per-image fields..." }
+  ]
+}
+```
 
 ---
 

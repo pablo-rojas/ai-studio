@@ -87,7 +87,7 @@ The GUI pre-populates the input resolution from the experiment's augmentation co
 |------|-------------|-------------|-------------|
 | Classification | `output` | `(N, num_classes)` | Class logits |
 | Anomaly Detection | `output` | `(N, 1)` | Anomaly logit |
-| Regression | `output` | `(N, 1)` | Scalar prediction |
+| Regression | `output` | `(N, num_outputs)` | Regression output vector |
 | Object Detection | `boxes`, `labels`, `scores` | Variable length | Detected objects |
 | Segmentation | `output` | `(N, num_classes, H, W)` | Per-pixel logits |
 

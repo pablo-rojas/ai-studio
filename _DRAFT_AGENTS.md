@@ -412,7 +412,7 @@ Use `sklearn.model_selection.train_test_split` with `stratify` for splits.
 
 - Experiments → runs hierarchy (one experiment can have many runs).
 - Each run gets a folder with `run.json`, `config.json`, `metrics.json`, `checkpoints/`.
-- Run statuses: `pending`, `running`, `completed`, `failed`, `stopped`.
+- Run statuses: `pending`, `running`, `completed`, `failed`, `cancelled`.
 
 ---
 

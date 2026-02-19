@@ -109,8 +109,8 @@ document.body.addEventListener('htmx:responseError', function(event) {
 });
 
 // SSE helper for training updates
-function connectTrainingSSE(runId, callbacks) {
-    const source = new EventSource(`/api/training/runs/${runId}/stream`);
+function connectTrainingSSE(experimentId, callbacks) {
+    const source = new EventSource(`/api/training/experiments/${experimentId}/stream`);
     source.addEventListener('epoch_end', (e) => callbacks.onEpoch(JSON.parse(e.data)));
     source.addEventListener('complete', (e) => { callbacks.onComplete(JSON.parse(e.data)); source.close(); });
     source.addEventListener('error', () => { callbacks.onError(); source.close(); });

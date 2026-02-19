@@ -6,7 +6,7 @@ This document describes the Lightning callbacks used during training and how met
 
 ## 1. Callback Stack
 
-Each training run uses the following callbacks:
+Each experiment's training uses the following callbacks:
 
 | Callback | Source | Purpose |
 |----------|--------|---------|
@@ -14,7 +14,7 @@ Each training run uses the following callbacks:
 | `EarlyStopping` | Lightning built-in | Stop training when validation metric plateaus |
 | `LearningRateMonitor` | Lightning built-in | Log learning rate per epoch |
 | `JSONMetricLogger` | **Custom** | Write per-epoch metrics to `metrics.json` |
-| `RunStatusUpdater` | **Custom** | Update `run.json` status on train start/end/error |
+| `ExperimentStatusUpdater` | **Custom** | Update `experiment.json` status on train start/end/error |
 | `SSENotifier` | **Custom** | Push training progress events for live GUI updates |
 
 ---
@@ -23,7 +23,7 @@ Each training run uses the following callbacks:
 
 ```python
 ModelCheckpoint(
-    dirpath=run_dir / "checkpoints",
+    dirpath=experiment_dir / "checkpoints",
     filename="best",
     monitor="val_loss",    # Can be overridden per task (e.g., "val_mAP")
     mode="min",            # "min" for loss, "max" for accuracy/mAP
@@ -146,14 +146,14 @@ class JSONMetricLogger(pl.Callback):
 
 ---
 
-## 6. RunStatusUpdater (Custom)
+## 6. ExperimentStatusUpdater (Custom)
 
-Updates `run.json` at key lifecycle points:
+Updates `experiment.json` at key lifecycle points:
 
 ```python
-class RunStatusUpdater(pl.Callback):
-    def __init__(self, run_json_path: Path):
-        self.run_json_path = run_json_path
+class ExperimentStatusUpdater(pl.Callback):
+    def __init__(self, experiment_json_path: Path):
+        self.experiment_json_path = experiment_json_path
     
     def on_train_start(self, trainer, pl_module):
         self._update_status("running", started_at=now())
@@ -165,7 +165,10 @@ class RunStatusUpdater(pl.Callback):
                           final_metrics=self._collect_final_metrics(trainer))
     
     def on_exception(self, trainer, pl_module, exception):
-        self._update_status("failed", error=str(exception))
+        if isinstance(exception, KeyboardInterrupt):
+            self._update_status("cancelled", completed_at=now())
+        else:
+            self._update_status("failed", error=str(exception))
 ```
 
 ---
@@ -198,8 +201,8 @@ class SSENotifier(pl.Callback):
 The API layer reads from the queue and streams events to the connected GUI:
 
 ```python
-@router.get("/api/training/{run_id}/stream")
-async def training_stream(run_id: str):
+@router.get("/api/training/{project_id}/experiments/{experiment_id}/stream")
+async def training_stream(project_id: str, experiment_id: str):
     async def event_generator():
         while True:
             event = await queue.get()
@@ -213,7 +216,7 @@ async def training_stream(run_id: str):
 
 ## 8. Training Log File
 
-A plain-text log file at `runs/<run-id>/logs/training.log` for debugging:
+A plain-text log file at `experiments/<exp-id>/logs/training.log` for debugging:
 
 - Lightning's default logging output.
 - Redirect Python's `logging` module to this file.

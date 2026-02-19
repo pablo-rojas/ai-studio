@@ -20,7 +20,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 | **Phase 7** | GUI — Split Page | Split creation form, preview, immutability display |
 | **Phase 8** | Classification Task | Task definition, model catalog, loss, metrics, augmentations |
 | **Phase 9** | Training Pipeline | LightningModule, DataModule, Trainer, single-GPU, SSE progress |
-| **Phase 10** | Experiment Tracking | Experiment CRUD, run management, metrics logging, checkpoints |
+| **Phase 10** | Experiment Tracking | Experiment CRUD, training management, metrics logging, checkpoints |
 | **Phase 11** | API — Training & Experiments | REST endpoints for Phases 8–10 |
 | **Phase 12** | GUI — Training Page | Experiment config, start training, live loss curves |
 | **Phase 13** | Evaluation Pipeline | Test-set evaluation, per-image results, aggregate metrics |
@@ -245,40 +245,40 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ## Phase 10 — Experiment Tracking
 
-**Goal**: Manage experiments, runs, metrics, and checkpoints.
+**Goal**: Manage experiments, training execution, metrics, and checkpoints.
 
 ### Deliverables
 
 | Component | Scope |
 |-----------|-------|
 | **Experiment CRUD** | Create, list, delete experiments |
-| **Run management** | Each training execution is a tracked run |
+| **Training management** | Each experiment has a single training execution |
 | **Metrics logging** | Per-epoch metrics saved to JSON |
 | **Checkpoints** | Save best + last checkpoints, track paths |
 
 ### Acceptance Criteria
 
-- [ ] Experiments and runs are listed with their status
+- [ ] Experiments are listed with their status
 - [ ] Per-epoch metrics are persisted and retrievable
-- [ ] Best checkpoint path is recorded per run
+- [ ] Best checkpoint path is recorded per experiment
 
 ---
 
 ## Phase 11 — API: Training & Experiments
 
-**Goal**: Expose training, experiment, and run management via REST endpoints.
+**Goal**: Expose training and experiment management via REST endpoints.
 
 ### Deliverables
 
 | Component | Scope |
 |-----------|-------|
 | **Training endpoints** | Start/stop training, SSE stream |
-| **Experiment endpoints** | CRUD experiments, list runs, get metrics |
+| **Experiment endpoints** | CRUD experiments, start/stop training, get metrics |
 
 ### Acceptance Criteria
 
 - [ ] Training can be started, monitored (SSE), and stopped via API
-- [ ] Experiments and runs can be listed with metrics via API
+- [ ] Experiments can be listed with metrics via API
 - [ ] API can be exercised end-to-end with curl/httpie
 
 ---
@@ -294,13 +294,13 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 | **Experiment config form** | Model selector, hyperparameter inputs, augmentation toggles |
 | **Start/stop training** | Button to launch training, button to stop |
 | **Live loss curves** | Chart updated via SSE (Chart.js or similar) |
-| **Run history** | List of past runs with status and final metrics |
+| **Experiment list** | List experiments with status and final metrics |
 
 ### Acceptance Criteria
 
-- [ ] User can configure and start a training run
+- [ ] User can configure and start training an experiment
 - [ ] Loss curves update in real time
-- [ ] Past runs are listed with metrics
+- [ ] Experiments are listed with status and metrics
 
 ---
 
@@ -354,7 +354,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 | Component | Scope |
 |-----------|-------|
-| **Trigger evaluation** | Button to evaluate a run on the test set |
+| **Trigger evaluation** | Button to evaluate an experiment on the test set |
 | **Aggregate metrics** | Display task-specific metrics in a summary card |
 | **Confusion matrix** | Interactive confusion matrix visualization |
 | **Per-image results** | Scrollable list with prediction, ground truth, confidence |
@@ -416,7 +416,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 | Component | Scope |
 |-----------|-------|
-| **Export form** | Select run/checkpoint, choose format (ONNX) |
+| **Export form** | Select experiment/checkpoint, choose format (ONNX) |
 | **Export status** | Show progress and validation result |
 | **Download link** | Direct download of the exported file |
 
@@ -559,7 +559,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 | Component | Change |
 |-----------|--------|
 | Task definition | `RegressionTask` |
-| Head | Single-output neuron (no activation) |
+| Head | Configurable `num_outputs` neurons (no activation) |
 | Loss | MSE, L1, Huber |
 | Metrics | MAE, MSE, RMSE, R² |
 | Target normalization | Z-score normalization with stored mean/std |
@@ -612,7 +612,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 | **TorchScript export** | Add `torch.jit.trace` export | Medium |
 | **TensorRT export** | ONNX → TensorRT engine conversion | Medium |
 | **OpenVINO export** | ONNX → OpenVINO IR conversion | Medium |
-| **Run comparison** | Overlay loss/metric curves from multiple runs | Medium |
+| **Experiment comparison** | Overlay loss/metric curves from multiple experiments | Medium |
 | **REST API docs** | Swagger UI with examples | Medium |
 | **Annotation editor** | Basic annotation tools (bbox, label) in the browser | Low |
 | **Dataset versioning** | Track dataset changes over time | Low |

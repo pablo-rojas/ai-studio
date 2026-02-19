@@ -6,7 +6,7 @@ This document describes the head modules that sit on top of backbones to produce
 
 ## 1. Overview
 
-A **head** transforms backbone feature maps into task-specific predictions. For classification/regression/anomaly tasks, the head is a simple module we compose with the backbone. For detection and segmentation, heads are integrated into the torchvision model architectures.
+A **head** transforms backbone feature maps into task-specific predictions. For classification/regression tasks, the head is a simple module we compose with the backbone. For detection and segmentation, heads are integrated into the torchvision model architectures. For **anomaly detection**, the traditional head is replaced by a student–teacher framework (see Section 2.2).
 
 ---
 
@@ -36,28 +36,71 @@ class ClassificationHead(nn.Module):
 
 **Output**: `(N, num_classes)` logits. Apply `softmax` for probabilities at inference.
 
-### 2.2 Anomaly Detection Head
+### 2.2 Anomaly Detection — Student–Teacher Framework (No Traditional Head)
 
-**File**: `app/models/heads/anomaly.py`
+Anomaly detection uses the **Uninformed Students** approach (Bergmann et al., CVPR 2020) — a student–teacher framework that replaces a traditional head entirely. There is no single classification head; instead, anomaly scores are derived from the **discrepancy** between a teacher network and an ensemble of student networks.
+
+**Files**:
+- `app/models/anomaly/teacher.py` — Teacher network (patch-based CNN distilled from backbone)
+- `app/models/anomaly/student.py` — Student network (same architecture as teacher)
+- `app/models/anomaly/scoring.py` — Anomaly scoring logic
+
+#### Teacher Network
 
 ```python
-class AnomalyHead(nn.Module):
-    def __init__(self, in_features: int, dropout: float = 0.2):
+class TeacherNetwork(nn.Module):
+    """Small patch-CNN distilled from the pretrained backbone.
+    Produces d-dimensional descriptors per image patch via FDFE."""
+    
+    def __init__(self, patch_size: int = 33, descriptor_dim: int = 512):
         super().__init__()
-        self.pool = nn.AdaptiveAvgPool2d(1)
-        self.flatten = nn.Flatten()
-        self.dropout = nn.Dropout(dropout)
-        self.fc = nn.Linear(in_features, 1)
+        # Convolutional layers with receptive field = patch_size
+        # Trained with distillation loss + compactness loss against backbone
+        ...
     
     def forward(self, x: Tensor) -> Tensor:
-        x = self.pool(x)
-        x = self.flatten(x)
-        x = self.dropout(x)
-        x = self.fc(x)
-        return x  # logit (scalar per image)
+        return x  # (N, descriptor_dim, H', W') — dense descriptors
 ```
 
-**Output**: `(N, 1)` logit. Apply `sigmoid` for anomaly probability.
+#### Student Network
+
+```python
+class StudentNetwork(nn.Module):
+    """Same architecture as TeacherNetwork. Independently initialized.
+    Trained to regress the teacher's normalized descriptors on anomaly-free data (MSE loss)."""
+    
+    def __init__(self, patch_size: int = 33, descriptor_dim: int = 512):
+        super().__init__()
+        # Same architecture as teacher
+        ...
+    
+    def forward(self, x: Tensor) -> Tensor:
+        return x  # (N, descriptor_dim, H', W') — dense descriptors
+```
+
+#### Anomaly Scoring
+
+```python
+def compute_anomaly_map(
+    teacher_out: Tensor,       # (N, D, H', W')
+    student_outs: List[Tensor] # M × (N, D, H', W')
+) -> Tuple[Tensor, Tensor]:
+    """Compute pixel-level and image-level anomaly scores."""
+    mu_s = torch.stack(student_outs).mean(dim=0)          # mean student prediction
+    pred_error = (mu_s - teacher_out).pow(2).sum(dim=1)    # (N, H', W')
+    pred_uncert = torch.stack(
+        [(s - mu_s).pow(2).sum(dim=1) for s in student_outs]
+    ).mean(dim=0)                                          # (N, H', W')
+    anomaly_map = pred_error + pred_uncert                 # pixel-level scores
+    image_score = anomaly_map.flatten(1).max(dim=1).values # image-level score
+    return anomaly_map, image_score
+```
+
+**Output**:
+- **Pixel-level**: `(N, H', W')` anomaly heatmap — per-pixel anomaly score.
+- **Image-level**: `(N,)` scalar — max over the heatmap. Thresholded for binary normal/anomalous decision.
+
+See [../03-tasks/02-anomaly-detection.md](../03-tasks/02-anomaly-detection.md) for full method details.
 
 ### 2.3 Regression Head
 
@@ -77,10 +120,10 @@ class RegressionHead(nn.Module):
         x = self.flatten(x)
         x = self.dropout(x)
         x = self.fc(x)
-        return x  # raw scalar prediction(s)
+        return x  # raw regression output vector(s)
 ```
 
-**Output**: `(N, num_outputs)` scalar values. No activation — raw predictions. `num_outputs` is determined by the dataset (`len(values)` per image).
+    **Output**: `(N, num_outputs)` numeric outputs. No activation — raw predictions. `num_outputs` is determined by the dataset (`len(values)` per image).
 
 ### 2.4 Detection Heads
 
@@ -173,13 +216,13 @@ The head is automatically determined by the task — the user doesn't choose it 
 def get_head_for_task(task: TaskType) -> str:
     return {
         TaskType.CLASSIFICATION: "classification",
-        TaskType.ANOMALY_DETECTION: "anomaly",
         TaskType.REGRESSION: "regression",
         # Detection and segmentation heads are embedded in full architectures
+        # Anomaly detection uses a student-teacher framework — no traditional head
     }[task]
 ```
 
-For detection/segmentation tasks, the "head" is part of the full model — there's no separate head selection.
+For detection/segmentation tasks, the "head" is part of the full model — there's no separate head selection. For **anomaly detection**, the student–teacher framework replaces the head entirely (see Section 2.2).
 
 ---
 

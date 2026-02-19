@@ -2,6 +2,8 @@
 
 This document describes reusable UI components used across multiple pages.
 
+Most items live in `app/templates/components/` (Jinja2 macros included server-side). The toast notification (§6) lives in `app/templates/fragments/error_toast.html` because it is an HTMX partial swapped into the DOM by API error responses, but is documented here as a cross-cutting UI element.
+
 ---
 
 ## 1. Top Bar

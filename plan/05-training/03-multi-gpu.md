@@ -71,11 +71,12 @@ This information is displayed in the GUI and used to validate device selection.
 
 ### 5.1 Effective Batch Size
 
-With DDP, the effective batch size = `batch_size × num_gpus`. The user should be aware:
-- If `batch_size=32` and `devices=[0, 1]`, effective batch size is 64.
+With DDP, the effective batch size = `batch_size × batch_multiplier × num_gpus`. The user should be aware:
+- If `batch_size=32`, `batch_multiplier=1`, and `devices=[0, 1]`, effective batch size is 64.
+- If `batch_size=8`, `batch_multiplier=4`, and `devices=[0, 1]`, effective batch size is 64.
 - Learning rate may need to be scaled accordingly (linear scaling rule).
 
-The GUI shows a note: *"Effective batch size: 64 (32 × 2 GPUs)"*.
+The GUI shows a note: *"Effective batch size: 64 (8 × 4 × 2 GPUs)"*.
 
 ### 5.2 Data Loading
 
@@ -84,7 +85,7 @@ The GUI shows a note: *"Effective batch size: 64 (32 × 2 GPUs)"*.
 
 ### 5.3 Logging
 
-- Only rank 0 writes to `metrics.json` and `run.json`.
+- Only rank 0 writes to `metrics.json` and `experiment.json`.
 - The `JSONMetricLogger` callback checks `self.trainer.is_global_zero` before writing.
 
 ### 5.4 Checkpointing
@@ -115,7 +116,7 @@ In the Training page center column, a "Hardware" section:
 |---------|------|-------|
 | Device selector | Multi-select dropdown with checkboxes | Lists **all** detected devices: CPU and each GPU (name + memory). Default: GPU 0 checked if available, otherwise CPU checked. |
 | Precision | Dropdown | `32` / `16-mixed` / `bf16-mixed` |
-| Effective batch size | Read-only label | Shown when 2+ GPUs selected. Computed: `batch_size × num_selected_gpus`. |
+| Effective batch size | Read-only label | Always shown. Computed: `batch_size × batch_multiplier × num_selected_gpus`. |
 
 **Selection rules:**
 - If both GPU(s) and CPU are checked, CPU is silently ignored (a subtle note informs the user).

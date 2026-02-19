@@ -1,6 +1,6 @@
 # Tasks — Regression
 
-**Phase**: 5
+**Phase**: 23
 
 ---
 
@@ -38,7 +38,7 @@ Multi-output example:
 
 | Format | Notes |
 |--------|-------|
-| **CSV** | `filename, value` columns |
+| **CSV** | Single-output: `filename, value`; multi-output: `filename, value_0, value_1, ...` |
 
 ---
 
@@ -59,7 +59,7 @@ backbone features (N, C) → Global Average Pool → Dropout(p) → Linear(C, nu
 ```
 
 - `num_outputs` is determined by `len(values)` in the dataset (1 for single-output, >1 for multi-output).
-- No activation (raw scalar predictions).
+- No activation (raw numeric predictions).
 - Dropout rate is configurable (default `0.2`).
 
 ---
@@ -94,7 +94,7 @@ backbone features (N, C) → Global Average Pool → Dropout(p) → Linear(C, nu
   { "name": "RandomResizedCrop", "params": { "size": [224, 224], "scale": [0.8, 1.0] } },
   { "name": "RandomHorizontalFlip", "params": { "p": 0.5 } },
   { "name": "ColorJitter", "params": { "brightness": 0.2, "contrast": 0.2 } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -105,7 +105,7 @@ backbone features (N, C) → Global Average Pool → Dropout(p) → Linear(C, nu
 [
   { "name": "Resize", "params": { "size": [256, 256] } },
   { "name": "CenterCrop", "params": { "size": [224, 224] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -135,7 +135,7 @@ backbone features (N, C) → Global Average Pool → Dropout(p) → Linear(C, nu
 ## 9. Visualization
 
 ### Dataset Page
-- **Value badge**: displayed in the top-left corner of the thumbnail (e.g., "3.7").
+- **Values badge**: displayed in the top-left corner of the thumbnail (e.g., `[3.7]` or `[3.7, 1.2, 0.8]`).
 - Optionally color-coded by value range (e.g., gradient from blue = low to red = high).
 
 ### Evaluation Page

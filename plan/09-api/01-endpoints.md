@@ -73,8 +73,8 @@ Splits are stored inline inside `dataset.json` (`split_names` + per-image `split
 |--------|----------|-------------|
 | `GET` | `/api/splits/{project_id}` | List all splits (names + stats) |
 | `POST` | `/api/splits/{project_id}` | Create a new split |
-| `GET` | `/api/splits/{project_id}/{split_index}` | Get split details (stats, per-class distribution) |
-| `DELETE` | `/api/splits/{project_id}/{split_index}` | Delete split (re-indexes remaining) |
+| `GET` | `/api/splits/{project_id}/{split_name}` | Get split details (stats, per-class distribution) |
+| `DELETE` | `/api/splits/{project_id}/{split_name}` | Delete split |
 | `GET` | `/api/splits/{project_id}/preview` | Preview a split before creating |
 
 ### `POST /api/splits/{project_id}` — Create Split
@@ -95,8 +95,7 @@ Backend appends the name to `split_names`, appends a value (`"train"`, `"val"`, 
 {
   "status": "ok",
   "data": {
-    "split_index": 0,
-    "name": "80-10-10",
+    "split_name": "80-10-10",
     "stats": {
       "train": 800, "val": 100, "test": 100
     }
@@ -106,7 +105,7 @@ Backend appends the name to `split_names`, appends a value (`"train"`, `"val"`, 
 
 ---
 
-## 4. Training (Experiments & Runs)
+## 4. Training (Experiments)
 
 ### Experiments
 
@@ -116,28 +115,22 @@ Backend appends the name to `split_names`, appends a value (`"train"`, `"val"`, 
 | `POST` | `/api/training/{project_id}/experiments` | Create experiment |
 | `GET` | `/api/training/{project_id}/experiments/{exp_id}` | Get experiment config |
 | `PATCH` | `/api/training/{project_id}/experiments/{exp_id}` | Update experiment config |
-| `DELETE` | `/api/training/{project_id}/experiments/{exp_id}` | Delete experiment + runs |
+| `DELETE` | `/api/training/{project_id}/experiments/{exp_id}` | Delete experiment + all results |
+| `POST` | `/api/training/{project_id}/experiments/{exp_id}/train` | Start training |
+| `POST` | `/api/training/{project_id}/experiments/{exp_id}/stop` | Stop training |
+| `POST` | `/api/training/{project_id}/experiments/{exp_id}/resume` | Resume interrupted training |
+| `POST` | `/api/training/{project_id}/experiments/{exp_id}/restart` | Restart experiment (deletes results, resets to created) |
+| `GET` | `/api/training/{project_id}/experiments/{exp_id}/metrics` | Get metrics JSON |
+| `GET` | `/api/training/{project_id}/experiments/{exp_id}/stream` | SSE event stream |
 
-### Runs
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/training/{project_id}/experiments/{exp_id}/run` | Start a new run |
-| `GET` | `/api/training/{project_id}/runs/{run_id}` | Get run status + metrics |
-| `POST` | `/api/training/{project_id}/runs/{run_id}/stop` | Stop a running training |
-| `POST` | `/api/training/{project_id}/runs/{run_id}/resume` | Resume an interrupted run |
-| `DELETE` | `/api/training/{project_id}/runs/{run_id}` | Delete a run |
-| `GET` | `/api/training/{project_id}/runs/{run_id}/metrics` | Get metrics JSON |
-| `GET` | `/api/training/{project_id}/runs/{run_id}/stream` | SSE event stream |
-
-### `POST .../run` — Start Training
+### `POST .../train` — Start Training
 
 **Response:**
 ```json
 {
   "status": "ok",
   "data": {
-    "run_id": "run-e5f6g7h8",
+    "experiment_id": "exp-a1b2c3d4",
     "status": "pending"
   }
 }
@@ -171,9 +164,8 @@ Backend appends the name to `split_names`, appends a value (`"train"`, `"val"`, 
 ```json
 {
   "experiment_id": "exp-a1b2c3d4",
-  "run_id": "run-e5f6g7h8",
   "checkpoint": "best",
-  "split_index": 0,
+  "split_name": "80-10-10",
   "split_subset": "test",
   "batch_size": 32
 }
@@ -198,7 +190,6 @@ Backend appends the name to `split_names`, appends a value (`"train"`, `"val"`, 
 ```json
 {
   "experiment_id": "exp-a1b2c3d4",
-  "run_id": "run-e5f6g7h8",
   "checkpoint": "best",
   "format": "onnx",
   "options": {

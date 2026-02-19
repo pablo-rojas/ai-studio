@@ -19,13 +19,13 @@ The studio covers the full lifecycle:
 
 | Phase | Task | Description |
 |-------|------|-------------|
-| 1 | **Classification** | Assign a single label to an entire image. |
-| 2 | **Anomaly Detection** | Detect whether an image is normal or anomalous, optionally localize the anomaly. |
-| 3 | **Object Detection** | Locate objects with axis-aligned bounding boxes + class labels. |
-| 3 | **Oriented Object Detection** | Like object detection, but with rotated bounding boxes. |
-| 4 | **Segmentation** | Assign a class label to every pixel (semantic segmentation). |
-| 4 | **Instance Segmentation** | Like segmentation, but distinguish individual object instances. |
-| 5 | **Regression** | Predict a continuous numeric value from an image. |
+| 8 | **Classification** | Assign a single label to an entire image. |
+| 19 | **Object Detection** | Locate objects with axis-aligned bounding boxes + class labels. |
+| 20 | **Segmentation** | Assign a class label to every pixel (semantic segmentation). |
+| 21 | **Instance Segmentation** | Like segmentation, but distinguish individual object instances. |
+| 22 | **Anomaly Detection** | Detect whether an image is normal or anomalous, optionally localize the anomaly. |
+| 23 | **Regression** | Predict one or more continuous numeric values from an image. |
+| 24 | **Oriented Object Detection** | Like object detection, but with rotated bounding boxes. |
 
 ---
 
@@ -41,7 +41,7 @@ The studio covers the full lifecycle:
 | **Templating** | Jinja2 | Server-rendered HTML pages |
 | **Interactivity** | HTMX + Alpine.js | Dynamic UI without a full SPA framework |
 | **Charts** | Chart.js | Loss curves, metric plots |
-| **Persistence** | Filesystem + JSON | Images in folders, metadata/configs/runs in JSON files |
+| **Persistence** | Filesystem + JSON | Images in folders, metadata/configs/experiments in JSON files |
 
 ---
 
@@ -81,7 +81,7 @@ No database. All state lives on the filesystem:
 - **Images** are stored in a folder hierarchy under each project.
 - **Annotations, dataset metadata, splits** are stored as JSON files.
 - **Training configs (hyperparameters, augmentation pipelines)** are stored as JSON files per experiment.
-- **Training runs** produce a folder with metrics JSON, checkpoint `.ckpt` files, and logs.
+- **Training experiments** produce metrics JSON, checkpoint `.ckpt` files, and logs within the experiment folder.
 - **Evaluation results** are stored as JSON (aggregate + per-image) alongside the evaluation config.
 - **Exported models** are saved as `.onnx` (or other format) files in the project's export folder.
 

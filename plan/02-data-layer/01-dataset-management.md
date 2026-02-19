@@ -127,7 +127,7 @@ Reading: `img_0001.png` is in `train` for split "80-10-10" (index 0) and in `tes
 
 ### Referencing Splits in Experiments
 
-Experiments reference a split by its **index** into `split_names` (stored as `split_index` in the experiment config). This is simpler than managing separate split IDs and files.
+Experiments reference a split by its **name** (stored as `split_name` in the experiment config). The positional index is resolved at runtime by looking up the name in `split_names`. This avoids fragile re-indexing when splits are deleted.
 
 See [03-splits.md](03-splits.md) for full split creation / management details.
 
@@ -183,7 +183,7 @@ Validation errors are returned to the user as a summary (count of errors + first
 
 ## 7. Thumbnails
 
-Thumbnails (150×150px) are generated on first access and cached in `dataset/.thumbs/`. This is an implementation detail — the API serves them transparently via `/api/datasets/{project_id}/thumbnails/{filename}`.
+Thumbnails (128×128px max) are generated on first access and cached in `dataset/.thumbs/`. This is an implementation detail — the API serves them transparently via `/api/datasets/{project_id}/thumbnails/{filename}`.
 
 ---
 

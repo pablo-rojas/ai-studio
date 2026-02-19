@@ -39,7 +39,7 @@ Create train/val/test data splits. View split statistics and class distribution 
 └────────────────────────────────────────────────────────────────┘
 ```
 
-Each card represents one entry in `split_names`. The index shown is the position in the list (used as `split_index` by experiments).
+Each card represents one entry in `split_names`. Experiments reference splits by name (`split_name`), not by positional index.
 
 ---
 
@@ -123,7 +123,7 @@ Class Distribution:
 [Browse Train Images] [Browse Val Images] [Browse Test Images]
 ```
 
-Clicking "Browse X Images" filters the Dataset page to show only images in that subset (via query param `?split_index=0&subset=train`).
+Clicking "Browse X Images" filters the Dataset page to show only images in that subset (via query param `?split_name=80-10-10&subset=train`).
 
 ---
 
@@ -133,7 +133,7 @@ Splits are **immutable** once created. If the user wants to change ratios:
 - They must create a new split.
 - The old split can be deleted (unless referenced by experiments).
 
-Deleting a split removes its name from `split_names` and the corresponding entry at that index in every image's `split` list. All higher-index splits shift down, so experiments referencing those higher indices must be updated (see [splits data model](../../02-data-layer/03-splits.md#7-deletion--re-indexing)).
+Deleting a split removes its name from `split_names` and the corresponding entry at that index in every image's `split` list. Since experiments reference splits by name (`split_name`), no re-indexing of other experiments is needed — only experiments that reference the deleted split are affected (see [splits data model](../../02-data-layer/03-splits.md)).
 
 A split referenced by an experiment shows a warning on delete:
 > "This split is used by 2 experiments. Deleting it will invalidate those experiments."

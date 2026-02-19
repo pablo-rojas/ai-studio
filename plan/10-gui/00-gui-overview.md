@@ -74,7 +74,7 @@ AI Studio has **6 pages**, all scoped to a project except the Project page:
 app/templates/
 ├── base.html                  # <html> skeleton, CSS/JS imports, top bar, nav bar
 ├── pages/
-│   ├── projects.html          # Project page
+│   ├── project.html           # Project page
 │   ├── dataset.html           # Dataset page
 │   ├── split.html             # Split page
 │   ├── training.html          # Training page
@@ -171,7 +171,7 @@ Most interactions use HTMX to swap a portion of the page:
 
 ```html
 <!-- Poll training status every 3 seconds -->
-<div hx-get="/api/training/{{ run_id }}/status" 
+<div hx-get="/api/training/{{ experiment_id }}/status" 
      hx-trigger="every 3s"
      hx-target="#training-status">
 </div>
@@ -180,7 +180,7 @@ Most interactions use HTMX to swap a portion of the page:
 ### Loading States
 
 ```html
-<button hx-post="/api/training/run" 
+<button hx-post="/api/training/train" 
         hx-indicator="#spinner">
     <span id="spinner" class="htmx-indicator">⏳</span>
     Start Training

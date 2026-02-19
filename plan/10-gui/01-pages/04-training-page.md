@@ -21,8 +21,8 @@ Configure experiments, set hyperparameters and augmentations, launch training, a
 │  Experiments │   Configuration     │     Results                  │
 │  (Left Col)  │   (Center Col)      │     (Right Col)              │
 │              │                     │                              │
-│ [+ New]      │  ── Model ──        │  Run: run-e5f6               │
-│              │  Backbone: [Res50▼] │  Status: ✓ Done              │
+│ [+ New]      │  ── Model ──        │  Status: ✓ Completed           │
+│              │  Backbone: [Res50▼] │                              │
 │ ┌──────────┐ │  Pretrained: [✓]    │                              │
 │ │►Baseline │ │                     │  ── Metrics ──               │
 │ │ ✓  95.6% │ │  ── Optimizer ──    │  Accuracy: 95.6%             │
@@ -48,7 +48,7 @@ Configure experiments, set hyperparameters and augmentations, launch training, a
 │              │  ── Hardware ──     │                              │
 │              │  Device: [☑GPU 0 ▼] │                              │
 │              │                     │                              │
-│              │  [Save] [Run ▶]     │                              │
+│              │  [Save] [Train ▶]   │                              │
 └──────────────┴─────────────────────┴──────────────────────────────┘
 ```
 
@@ -68,7 +68,7 @@ Configure experiments, set hyperparameters and augmentations, launch training, a
 ```
 ┌─────────────────────┐
 │ ► ResNet50 Baseline │
-│ ✓ 2 runs │ 95.6%    │
+│ ✓ 95.6%             │
 └─────────────────────┘
 ```
 
@@ -76,9 +76,8 @@ Configure experiments, set hyperparameters and augmentations, launch training, a
 |---------|-------------|
 | Arrow ► | Selected indicator |
 | Name | Editable name |
-| Status icon | ● Running, ✓ Completed, ✗ Failed, ○ No runs |
-| Run count | Number of runs |
-| Best metric | Best result across all runs |
+| Status icon | ● Training, ✓ Completed, ✗ Failed, ○ Not trained |
+| Best metric | Best metric value (if completed) |
 
 ### Actions
 
@@ -139,6 +138,7 @@ Scrollable form with sections:
 |---------|------|-------------|
 | Epochs | Number input | |
 | Batch Size | Number input | |
+| Batch Multiplier | Number input | 1–64. Accumulates gradients over N batches to simulate a larger effective batch size without extra GPU memory. |
 | Num Workers | Number input | DataLoader workers |
 | Early Stopping | Checkbox | Enable/disable |
 | Patience | Number input | Visible when early stopping enabled |
@@ -173,12 +173,12 @@ A live-editable list of transforms:
 | Device | Multi-select dropdown with checkboxes | Lists all detected devices: CPU, GPU 0, GPU 1, … Each entry shows device name + memory. Default: GPU 0 selected if available, otherwise CPU. If both GPU(s) and CPU are selected, CPU is silently ignored. If exactly one GPU is selected, trains on that GPU. If 2+ GPUs are selected, DDP multi-GPU is used automatically. |
 | Precision | Dropdown | 32, 16-mixed, bf16-mixed |
 
-**Effective batch size note**: When multiple GPUs are selected, the GUI shows a read-only label: *"Effective batch size: N (batch_size × num_gpus)"*.
+**Effective batch size note**: The GUI always shows a read-only label: *"Effective batch size: N (batch_size × batch_multiplier × num_gpus)"*. When `batch_multiplier` is 1 and only one GPU is selected, the label simply mirrors the batch size.
 
 ### 4.9 Action Buttons
 
-- **Save**: Persist config to `experiment.json`.
-- **Run ▶**: Save + start a new training run.
+- **Save**: Persist config to `experiment.json`. Only enabled while status is `"created"`.
+- **Train ▶**: Save + start training. Configuration becomes read-only once training begins.
 
 ---
 
@@ -186,13 +186,13 @@ A live-editable list of transforms:
 
 **Width**: ~40% of remaining space.
 
-### 5.1 No Runs State
+### 5.1 Not Trained State
 
 ```
 ┌─────────────────────┐
 │                     │
-│  No runs yet.       │
-│  Click "Run" to     │
+│  Not yet trained.   │
+│  Click "Train" to   │
 │  start training.    │
 │                     │
 └─────────────────────┘
@@ -202,8 +202,7 @@ A live-editable list of transforms:
 
 ```
 ┌─────────────────────────────┐
-│  Run: run-e5f6g7h8          │
-│  Status: ● Running          │
+│  Status: ● Training          │
 │  Epoch: 23/50               │
 │  ████████████░░░░░░░ 46%    │
 │  ETA: 12m 30s               │
@@ -219,14 +218,13 @@ A live-editable list of transforms:
 
 - Progress bar with epoch count.
 - Live-updating loss chart (via SSE or polling).
-- "Stop Training" button cancels the run.
+- "Stop Training" button cancels training.
 
 ### 5.3 Completed State
 
 ```
 ┌─────────────────────────────┐
-│  Run: [run-e5f6 ▼]          │
-│  Status: ✓ Completed        │
+│  Status: ✓ Completed         │
 │  Duration: 40m 12s          │
 │                             │
 │  ── Metrics ──              │
@@ -248,26 +246,25 @@ A live-editable list of transforms:
 │  │   LR Schedule Curve   │  │
 │  └───────────────────────┘  │
 │                             │
-│  [Evaluate] [Export] [Run]  │
+│  [Evaluate] [Export] [Restart]│
 └─────────────────────────────┘
 ```
 
-- **Run selector dropdown**: Switch between runs of the same experiment.
 - **Metric summary table** with all recorded metrics.
 - **Three charts**: Loss curves, metric curves, LR schedule.
-- **Quick action buttons**: Jump to Evaluation/Export pages with the run pre-selected.
+- **Restart button**: Deletes results and allows reconfiguration.
+- **Quick action buttons**: Jump to Evaluation/Export pages with the experiment pre-selected.
 
 ### 5.4 Failed State
 
 ```
 ┌─────────────────────────────┐
-│  Run: run-i9j0k1l2          │
-│  Status: ✗ Failed           │
+│  Status: ✗ Failed            │
 │                             │
 │  Error: CUDA out of memory  │
 │  [Show full traceback ▼]    │
 │                             │
-│  [Resume] [Delete Run]      │
+│  [Resume] [Restart]          │
 └─────────────────────────────┘
 ```
 
@@ -279,16 +276,15 @@ A live-editable list of transforms:
 |--------|---------|---------|--------|
 | Select experiment | Click card | `GET .../experiments/{id}` | `#config-panel`, `#results-panel` |
 | Save config | Click "Save" | `PATCH .../experiments/{id}` | Toast notification |
-| Start run | Click "Run" | `POST .../experiments/{id}/run` | `#results-panel` |
-| Stop run | Click "Stop" | `POST .../runs/{id}/stop` | `#results-panel` |
-| Switch run | Change dropdown | `GET .../runs/{id}` | `#results-panel` |
+| Start training | Click "Train" | `POST .../experiments/{id}/train` | `#results-panel` |
+| Stop training | Click "Stop" | `POST .../experiments/{id}/stop` | `#results-panel` |
 | Add transform | Click "Add" | Alpine.js local state | Re-render augmentation list |
 
 ---
 
 ## 7. Related Documents
 
-- Experiments & runs → [../../06-experiment-tracking/00-run-management.md](../../06-experiment-tracking/00-run-management.md)
+- Experiment management → [../../06-experiment-tracking/00-run-management.md](../../06-experiment-tracking/00-run-management.md)
 - Hyperparameters → [../../05-training/01-hyperparameters.md](../../05-training/01-hyperparameters.md)
 - Augmentations → [../../05-training/02-augmentation.md](../../05-training/02-augmentation.md)
 - Training API → [../../09-api/01-endpoints.md](../../09-api/01-endpoints.md#4-training)

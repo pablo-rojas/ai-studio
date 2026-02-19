@@ -1,6 +1,6 @@
 # Tasks — Classification
 
-**Phase**: 1 (first task to implement)
+**Phase**: 8 (first task to implement)
 
 ---
 
@@ -97,7 +97,7 @@ backbone features (N, C) → Dropout(p) → Linear(C, num_classes) → logits (N
   { "name": "RandomHorizontalFlip", "params": { "p": 0.5 } },
   { "name": "RandomRotation", "params": { "degrees": 15 } },
   { "name": "ColorJitter", "params": { "brightness": 0.2, "contrast": 0.2, "saturation": 0.1, "hue": 0.05 } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -108,7 +108,7 @@ backbone features (N, C) → Dropout(p) → Linear(C, num_classes) → logits (N
 [
   { "name": "Resize", "params": { "size": [256, 256] } },
   { "name": "CenterCrop", "params": { "size": [224, 224] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```

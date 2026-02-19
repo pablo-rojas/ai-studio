@@ -1,6 +1,6 @@
 # Tasks — Oriented Object Detection
 
-**Phase**: 3
+**Phase**: 24
 
 ---
 
@@ -91,7 +91,7 @@ IoU computation for oriented boxes uses the Shapely polygon intersection or a cu
   { "name": "RandomVerticalFlip", "params": { "p": 0.5 } },
   { "name": "RandomRotation", "params": { "degrees": 90 } },
   { "name": "Resize", "params": { "size": [800, 800] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```

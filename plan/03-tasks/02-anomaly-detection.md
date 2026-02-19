@@ -1,6 +1,6 @@
 # Tasks — Anomaly Detection
 
-**Phase**: 2
+**Phase**: 22
 
 ---
 
@@ -167,7 +167,7 @@ A threshold on $A$ yields the binary normal/anomalous classification.
   { "name": "RandomHorizontalFlip", "params": { "p": 0.5 } },
   { "name": "RandomVerticalFlip", "params": { "p": 0.5 } },
   { "name": "RandomRotation", "params": { "degrees": 180 } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -179,7 +179,7 @@ A threshold on $A$ yields the binary normal/anomalous classification.
   { "name": "Resize", "params": { "size": [256, 256] } },
   { "name": "RandomHorizontalFlip", "params": { "p": 0.5 } },
   { "name": "RandomVerticalFlip", "params": { "p": 0.5 } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -191,7 +191,7 @@ Light augmentation is used to preserve the structure of normal patterns. No colo
 ```json
 [
   { "name": "Resize", "params": { "size": [256, 256] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```

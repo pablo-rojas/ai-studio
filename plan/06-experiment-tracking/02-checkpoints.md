@@ -6,14 +6,14 @@ This document describes checkpoint saving, management, and resumption.
 
 ## 1. Checkpoint Files
 
-Each training run saves two checkpoints:
+Each experiment's training saves two checkpoints:
 
 | File | Description | When Updated |
 |------|-------------|-------------|
 | `best.ckpt` | Model with best monitored metric | Whenever a new best is achieved |
 | `last.ckpt` | Model at the most recent epoch | Every epoch |
 
-Location: `projects/<project-id>/experiments/<exp-id>/runs/<run-id>/checkpoints/`
+Location: `projects/<project-id>/experiments/<exp-id>/checkpoints/`
 
 ---
 
@@ -50,19 +50,19 @@ Different downstream operations use different checkpoints:
 If training is interrupted (crash, cancellation, manual stop):
 
 1. The `last.ckpt` contains the full training state.
-2. User can resume by selecting the interrupted run and clicking "Resume".
+2. User can resume by clicking "Resume" on a failed or cancelled experiment.
 3. The Trainer is created with `ckpt_path=last.ckpt`:
 
 ```python
-trainer.fit(module, datamodule, ckpt_path=str(run_dir / "checkpoints" / "last.ckpt"))
+trainer.fit(module, datamodule, ckpt_path=str(exp_dir / "checkpoints" / "last.ckpt"))
 ```
 
 4. Training continues from the last saved epoch with all states restored.
 
 ### Resume UI
 
-- If a run has status `"failed"` or `"cancelled"` and has a `last.ckpt`, show a **"Resume"** button.
-- Resuming creates a continuation of the same run (same run ID, appends to `metrics.json`).
+- If an experiment has status `"failed"` or `"cancelled"` and has a `last.ckpt`, show a **"Resume"** button.
+- Resuming continues from the last checkpoint (same experiment, appends to `metrics.json`).
 
 ---
 
@@ -79,13 +79,13 @@ Checkpoint sizes vary by model:
 | DeepLabV3 (ResNet-50) | ~165 MB |
 | Mask R-CNN (ResNet-50) | ~170 MB |
 
-Both `best.ckpt` and `last.ckpt` are the same size. Total per run: ~2× model size.
+Both `best.ckpt` and `last.ckpt` are the same size. Total per experiment: ~2× model size.
 
 ---
 
 ## 6. Checkpoint Metadata
 
-For quick reference without loading the full `.ckpt`, metadata is stored in `run.json`:
+For quick reference without loading the full `.ckpt`, metadata is stored in `experiment.json`:
 
 ```json
 {
@@ -110,15 +110,15 @@ For quick reference without loading the full `.ckpt`, metadata is stored in `run
 
 ## 7. Cleanup
 
-- Checkpoints are kept indefinitely unless the user deletes a run.
+- Checkpoints are kept indefinitely unless the user deletes or restarts an experiment.
 - No automatic cleanup — storage management is left to the user.
-- The GUI shows checkpoint sizes in the run detail view to help users manage disk space.
+- The GUI shows checkpoint sizes in the experiment detail view to help users manage disk space.
 
 ---
 
 ## 8. Related Documents
 
-- Run management → [00-run-management.md](00-run-management.md)
+- Experiment management → [00-run-management.md](00-run-management.md)
 - ModelCheckpoint callback → [../05-training/04-callbacks-logging.md](../05-training/04-callbacks-logging.md)
 - Evaluation (uses checkpoints) → [../07-evaluation/00-evaluation-pipeline.md](../07-evaluation/00-evaluation-pipeline.md)
 - Export (uses checkpoints) → [../08-export/00-export-overview.md](../08-export/00-export-overview.md)

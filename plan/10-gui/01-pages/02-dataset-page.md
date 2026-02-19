@@ -62,8 +62,6 @@ Import datasets, browse images, and view annotations. This page is for data **vi
 │    ○ CSV                             │
 │    ○ Image Folder                    │
 │                                      │
-│  [] Copy images (uncheck to symlink) │
-│                                      │
 │         [Cancel]  [Import]           │
 └──────────────────────────────────────┘
 ```
@@ -77,12 +75,12 @@ After import:
 
 ## 4. Image Grid
 
-- **Thumbnail** (200×200px) with lazy loading.
+- **Thumbnail** (128×128px max) with lazy loading.
 - **Annotation overlay** (task-dependent):
   - Classification: class label badge at bottom.
   - Detection: bounding boxes drawn on thumbnail.
   - Segmentation: mask overlay on thumbnail.
-  - Regression: value badge at bottom.
+  - Regression: values badge at bottom.
 - **Selection**: click to open image detail view.
 
 ### Loading

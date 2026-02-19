@@ -27,13 +27,13 @@ Each task has a phase number. Tasks with phase > current release phase are hidde
 
 | Task | Phase | Status |
 |------|-------|--------|
-| Classification | 1 | **Active** |
-| Anomaly Detection | 2 | Planned |
-| Object Detection | 3 | Planned |
-| Oriented Object Detection | 3 | Planned |
-| Segmentation | 4 | Planned |
-| Instance Segmentation | 4 | Planned |
-| Regression | 5 | Planned |
+| Classification | 8 | **Active** |
+| Anomaly Detection | 22 | Planned |
+| Object Detection | 19 | Planned |
+| Oriented Object Detection | 24 | Planned |
+| Segmentation | 20 | Planned |
+| Instance Segmentation | 21 | Planned |
+| Regression | 23 | Planned |
 
 Configuration: `ACTIVE_PHASES = [1]` initially, incremented as phases are implemented.
 
@@ -88,7 +88,7 @@ Each task module must provide the following components. These are not enforced v
 | Oriented OD | Rotated bounding boxes + class labels |
 | Segmentation | Semi-transparent colored mask overlay |
 | Instance Segmentation | Per-instance colored mask + class labels |
-| Regression | Value badge (top-left corner) |
+| Regression | Values badge (top-left corner) |
 
 ### 3.6 Default Augmentations
 

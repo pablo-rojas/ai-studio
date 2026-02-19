@@ -38,7 +38,7 @@ class TrainingInProgressError(ConflictError):
     error_code = "TRAINING_IN_PROGRESS"
     
     def __init__(self):
-        super().__init__("A training run is already in progress")
+        super().__init__("An experiment is already training")
 
 
 class DatasetNotImportedError(ValidationError):
@@ -199,7 +199,7 @@ The `error_toast.html` fragment renders a dismissible error toast notification t
 
 ## 6. Training Error Handling
 
-Training runs can fail due to various reasons. These are captured in `run.json`:
+Training can fail due to various reasons. These are captured in `experiment.json`:
 
 ```json
 {
@@ -215,13 +215,13 @@ Training runs can fail due to various reasons. These are captured in `run.json`:
 The training wrapper catches all exceptions:
 
 ```python
-async def run_training(run_id: str):
+async def run_training(experiment_id: str):
     try:
-        update_run_status(run_id, "running")
+        update_experiment_status(experiment_id, "training")
         trainer.fit(module, datamodule)
-        update_run_status(run_id, "completed")
+        update_experiment_status(experiment_id, "completed")
     except Exception as e:
-        update_run_status(run_id, "failed", error={
+        update_experiment_status(experiment_id, "failed", error={
             "type": type(e).__name__,
             "message": str(e),
             "traceback": traceback.format_exc()

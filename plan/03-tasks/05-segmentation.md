@@ -1,6 +1,6 @@
 # Tasks — Segmentation (Semantic)
 
-**Phase**: 4
+**Phase**: 20
 
 ---
 
@@ -84,7 +84,7 @@ The head takes backbone features (with FPN or dilated convolutions) and upsample
   { "name": "RandomHorizontalFlip", "params": { "p": 0.5 } },
   { "name": "RandomRotation", "params": { "degrees": 10 } },
   { "name": "ColorJitter", "params": { "brightness": 0.3, "contrast": 0.3 } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -96,7 +96,7 @@ The head takes backbone features (with FPN or dilated convolutions) and upsample
 ```json
 [
   { "name": "Resize", "params": { "size": [512, 512] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -147,7 +147,7 @@ Per-image result:
 ```json
 {
   "filename": "img_001.png",
-  "predicted_mask_path": "per_image/img_001_pred.png",
+  "predicted_mask_path": "pred_masks/img_001_pred.png",
   "pixel_accuracy": 0.94,
   "per_class_iou": { "background": 0.97, "road": 0.91, "building": 0.88 },
   "miou": 0.92

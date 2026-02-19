@@ -1,6 +1,6 @@
 # Data Layer — Storage Layout
 
-This document defines the folder structure for **user data** (projects, datasets, runs, exports). All data lives under a single workspace root with no external database.
+This document defines the folder structure for **user data** (projects, datasets, experiments, exports). All data lives under a single workspace root with no external database.
 
 ---
 
@@ -17,7 +17,7 @@ workspace/
     │   │
     │   ├── dataset/                # Imported dataset
     │   │   ├── dataset.json        # All metadata, images, annotations, and splits
-    │   │   ├── images/             # Image files (copied or symlinked)
+    │   │   ├── images/             # Image files (copied on import)
     │   │   │   ├── img_0001.png
     │   │   │   ├── img_0002.jpg
     │   │   │   └── ...
@@ -29,28 +29,21 @@ workspace/
     │   ├── experiments/            # Training experiments
     │   │   ├── experiments_index.json
     │   │   ├── <experiment-id>/
-    │   │   │   ├── experiment.json # Experiment config (model, hparams, augmentations)
-    │   │   │   └── runs/           # Training runs for this experiment
-    │   │   │       ├── <run-id>/
-    │   │   │       │   ├── run.json        # Run metadata (status, start/end time)
-    │   │   │       │   ├── config.json     # Frozen snapshot of experiment config
-    │   │   │       │   ├── metrics.json    # Per-epoch metrics
-    │   │   │       │   ├── checkpoints/
-    │   │   │       │   │   ├── best.ckpt
-    │   │   │       │   │   └── last.ckpt
-    │   │   │       │   └── logs/
-    │   │   │       │       └── training.log
-    │   │   │       └── ...
+    │   │   │   ├── experiment.json # Experiment config + status + results
+    │   │   │   ├── metrics.json    # Per-epoch metrics (created on training start)
+    │   │   │   ├── checkpoints/    # (created on training start)
+    │   │   │   │   ├── best.ckpt
+    │   │   │   │   └── last.ckpt
+    │   │   │   └── logs/
+    │   │   │       └── training.log
     │   │   └── ...
     │   │
     │   ├── evaluations/            # Evaluation results
     │   │   ├── evaluations_index.json
     │   │   ├── <evaluation-id>/
     │   │   │   ├── evaluation.json   # Eval config (checkpoint, split, params)
-    │   │   │   ├── results.json      # Aggregate metrics
-    │   │   │   └── per_image/        # Per-image prediction details
-    │   │   │       ├── img_0001.json
-    │   │   │       └── ...
+    │   │   │   ├── aggregate.json    # Aggregate metrics
+    │   │   │   └── results.json      # All per-image predictions (single file)
     │   │   └── ...
     │   │
     │   └── exports/                # Exported models
@@ -139,12 +132,18 @@ Splits are stored inline — see [03-splits.md](03-splits.md) for details.
 
 ### `experiment.json`
 
+Contains both configuration and execution state. Configuration fields are editable only while status is `"created"`. See [../06-experiment-tracking/00-run-management.md](../06-experiment-tracking/00-run-management.md) for the full experiment lifecycle.
+
 ```json
 {
   "id": "exp-001",
   "name": "ResNet50 baseline",
+  "description": "Baseline experiment with default hyperparameters",
   "created_at": "2026-02-19T11:00:00Z",
-  "split_index": 0,
+  "status": "completed",
+  "started_at": "2026-02-19T11:05:00Z",
+  "completed_at": "2026-02-19T11:45:00Z",
+  "split_name": "Default 70/20/10",
   "model": {
     "backbone": "resnet50",
     "head": "classification",
@@ -157,6 +156,7 @@ Splits are stored inline — see [03-splits.md](03-splits.md) for details.
     "weight_decay": 0.0001,
     "scheduler": "cosine",
     "batch_size": 32,
+    "batch_multiplier": 1,
     "max_epochs": 50,
     "early_stopping_patience": 10
   },
@@ -176,19 +176,7 @@ Splits are stored inline — see [03-splits.md](03-splits.md) for details.
   "hardware": {
     "selected_devices": ["gpu:0"],
     "precision": "32"
-  }
-}
-```
-
-### `run.json`
-
-```json
-{
-  "id": "run-001",
-  "experiment_id": "exp-001",
-  "status": "completed",
-  "started_at": "2026-02-19T11:05:00Z",
-  "completed_at": "2026-02-19T11:45:00Z",
+  },
   "best_epoch": 38,
   "best_metric": { "val_accuracy": 0.956 },
   "final_metrics": {
@@ -196,11 +184,12 @@ Splits are stored inline — see [03-splits.md](03-splits.md) for details.
     "val_loss": 0.118,
     "val_accuracy": 0.956,
     "val_f1": 0.951
-  }
+  },
+  "error": null
 }
 ```
 
-Valid `status` values: `"pending"`, `"running"`, `"completed"`, `"failed"`, `"cancelled"`.
+Valid `status` values: `"created"`, `"pending"`, `"training"`, `"completed"`, `"failed"`, `"cancelled"`.
 
 ### `metrics.json`
 
@@ -237,13 +226,13 @@ All IDs are generated as `<entity>-<short-uuid>`, e.g., `project-a1b2c3d4`. Use 
 
 ---
 
-## 4. Concurrency & File Locking
+## 4. Concurrency & Atomic Writes
 
 Since only one user is expected at a time (local tool), basic concurrency handling is sufficient:
 
-- Use `filelock` (or `fcntl` on Linux / `msvcrt` on Windows) when writing JSON files.
-- Reads do not require locks (JSON files are written atomically via write-to-temp + rename).
-- Training runs are managed via FastAPI `BackgroundTasks` — only one training run should be active at a time per project.
+- JSON files are written atomically via **write-to-temp + rename** (write to a temporary file in the same directory, then `os.replace()` to the target path). This ensures readers never see a partially-written file.
+- No file locking library is needed.
+- Training is managed via FastAPI `BackgroundTasks` — only one experiment should be training at a time per project.
 
 ---
 
@@ -260,4 +249,4 @@ Since only one user is expected at a time (local tool), basic concurrency handli
 - Dataset import flow → [01-dataset-management.md](01-dataset-management.md)
 - Supported annotation formats → [02-dataset-formats.md](02-dataset-formats.md)
 - Split logic → [03-splits.md](03-splits.md)
-- Experiment tracking → [../06-experiment-tracking/00-run-management.md](../06-experiment-tracking/00-run-management.md)
+- Experiment tracking → [../06-experiment-tracking/00-run-management.md](../06-experiment-tracking/00-run-management.md) (experiment management)

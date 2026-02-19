@@ -97,7 +97,7 @@ The `is_head_parameter()` function checks if a parameter name belongs to the hea
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `pretrained` | `true` | Use ImageNet pretrained weights |
+| `pretrained` | `true` | Use pretrained weights |
 | `freeze_backbone` | `false` | Freeze backbone layers |
 
 ---

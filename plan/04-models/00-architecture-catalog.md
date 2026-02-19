@@ -62,7 +62,11 @@ def list_architectures(task: str) -> list[str]:
 
 ### Anomaly Detection
 
-To be defined.
+Anomaly detection uses a custom student–teacher pipeline (Uninformed Students, Bergmann et al. 2020) rather than torchvision models. The architecture is not yet fully finalised — it will be implemented from scratch and may evolve during development (Phase 22).
+
+| Architecture | Key | Source | Notes |
+|-------------|-----|--------|-------|
+| Uninformed Students (ResNet-18) | `uninformed_students_resnet18` | Custom | Frozen ResNet-18 backbone → teacher distillation → student ensemble. See [02-anomaly-detection.md](../03-tasks/02-anomaly-detection.md). |
 
 ### Object Detection
 
@@ -96,7 +100,7 @@ To be defined.
 
 ### Regression
 
-Same architectures as classification, but with a regression head (single output neuron) instead of FC classifier.
+Same architectures as classification, but with a regression head (`num_outputs` neurons) instead of FC classifier.
 
 ---
 

@@ -109,16 +109,16 @@ When saved:
 
 ## 5. Referencing Splits in Experiments
 
-Experiments store a `split_index` (integer) that points into `split_names`:
+Experiments store a `split_name` (string) that matches an entry in `split_names`:
 
 ```json
 {
-  "split_index": 0,
+  "split_name": "80-10-10",
   "...": "..."
 }
 ```
 
-This replaces the previous `split_id` approach. The experiment reads `split_names[split_index]` to resolve the split name, and filters images by `image.split[split_index]` to get each subset.
+The experiment resolves the split's positional index at runtime by looking up `split_name` in the `split_names` list, then filters images by `image.split[index]` to get each subset. Using the name instead of a positional index means that deleting a split never invalidates unrelated experiments — only experiments that reference the deleted split by name are affected.
 
 ---
 
@@ -134,8 +134,7 @@ Splits are **immutable once created** to ensure experiment reproducibility. To m
 
 1. Remove the entry from `split_names` at the target index.
 2. Remove the element at that index from every image's `split` list.
-3. Re-index any experiments that reference a higher `split_index` (decrement by 1).
-4. Warn if experiments reference the split being deleted.
+3. Warn if any experiments reference the deleted split's name (`split_name`). No re-indexing of other experiments is needed because experiments reference splits by name, not by positional index.
 
 ### Listing Splits
 

@@ -55,7 +55,6 @@ Run model evaluation on test sets, view aggregate metrics, browse per-image pred
 ├──────────────────────────────────────┤
 │                                      │
 │  Experiment: [ResNet50 Baseline ▼]   │
-│  Run:        [run-e5f6g7h8 (best)▼]  │
 │  Checkpoint: [best ▼]                │
 │                                      │
 │  Split:      [80-10-10 ▼]             │
@@ -68,8 +67,7 @@ Run model evaluation on test sets, view aggregate metrics, browse per-image pred
 └──────────────────────────────────────┘
 ```
 
-- Experiment dropdown → filters available runs.
-- Run dropdown → shows each run with its best metric.
+- Experiment dropdown → lists completed experiments.
 - Subset dropdown: test (default), val, train.
 - "Evaluate" starts background evaluation.
 

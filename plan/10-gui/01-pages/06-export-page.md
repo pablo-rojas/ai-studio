@@ -25,7 +25,7 @@ Export trained models to deployable formats (ONNX initially). Configure export o
 │  │              │                                           │  │
 │  │ ┌──────────┐ │  Source:                                  │  │
 │  │ │►ONNX v1 │ │  Experiment: ResNet50 Baseline             │  │
-│  │ │ ✓ 98MB   │ │  Run: run-e5f6 │ Checkpoint: best        │  │
+│  │ ✓ 98MB   │ │  Checkpoint: best                        │  │
 │  │ └──────────┘ │                                           │  │
 │  │              │  Format: ONNX                             │  │
 │  │ ┌──────────┐ │  Opset: 17                                │  │
@@ -57,7 +57,6 @@ Export trained models to deployable formats (ONNX initially). Configure export o
 │                                      │
 │  ── Source Model ──                  │
 │  Experiment: [ResNet50 Baseline ▼]   │
-│  Run:        [run-e5f6g7h8 ▼]        │
 │  Checkpoint: [best ▼]                │
 │                                      │
 │  ── Export Format ──                 │
@@ -98,7 +97,7 @@ Each export card:
 | Name | Format + version (e.g., "ONNX v1") |
 | Status | ● Running, ✓ Completed, ✗ Failed |
 | File size | e.g., "98.5 MB" |
-| Source | Experiment name + run |
+| Source | Experiment name |
 | Date | Creation date |
 
 ---
@@ -108,7 +107,7 @@ Each export card:
 ### Completed Export
 
 Shows:
-- **Source**: experiment, run, checkpoint used.
+- **Source**: experiment + checkpoint used.
 - **Format & options**: all configured export options.
 - **Validation**: pass/fail + max numerical difference.
 - **File info**: size, creation date.
@@ -145,7 +144,7 @@ Steps: Loading model → Exporting → Simplifying → Validating → Done.
 
 The Training page's "Export" quick action button:
 1. Navigates to Export page.
-2. Pre-fills experiment and run from the training page.
+2. Pre-fills experiment from the training page.
 3. Opens the New Export modal.
 
 ---

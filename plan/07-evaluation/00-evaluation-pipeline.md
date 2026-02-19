@@ -28,7 +28,7 @@ User selects: Checkpoint + Split (test set)
            ▼
    Store results:
    ├── evaluation.json    (config + aggregate metrics)
-   └── per_image/*.json   (per-image predictions)
+   └── results.json       (all per-image predictions in a single file)
 ```
 
 ---
@@ -40,9 +40,8 @@ User selects: Checkpoint + Split (test set)
   "id": "eval-abc123",
   "name": "Test set evaluation",
   "experiment_id": "exp-a1b2c3d4",
-  "run_id": "run-e5f6g7h8",
   "checkpoint": "best",
-  "split_index": 0,
+  "split_name": "80-10-10",
   "split_subset": "test",
   "batch_size": 32,
   "device": "cuda:0",
@@ -52,10 +51,9 @@ User selects: Checkpoint + Split (test set)
 
 | Field | Description |
 |-------|-------------|
-| `experiment_id` | Which experiment the model comes from |
-| `run_id` | Which run (training run) to load the checkpoint from |
+| `experiment_id` | Which experiment to load the checkpoint from |
 | `checkpoint` | `"best"` or `"last"` |
-| `split_index` | Index into `dataset.json` `split_names` — identifies which split to use |
+| `split_name` | Name matching an entry in `dataset.json` `split_names` — identifies which split to use |
 | `split_subset` | Which subset: `"test"` (default), `"val"`, or `"train"` |
 | `batch_size` | Inference batch size |
 | `device` | GPU device for inference |
@@ -129,6 +127,7 @@ Progress is reported via polling (percentage of images processed).
 ```
 pending → running → completed
                   → failed
+                  → cancelled
 ```
 
 Stored in `evaluation.json`:
@@ -150,10 +149,7 @@ projects/<project-id>/evaluations/
 ├── evaluations_index.json
 └── eval-abc123/
     ├── evaluation.json        # Config + status + aggregate metrics
-    └── per_image/
-        ├── img_0001.json      # Per-image result
-        ├── img_0002.json
-        └── ...
+    └── results.json           # All per-image predictions
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Tasks — Object Detection
 
-**Phase**: 3
+**Phase**: 19
 
 ---
 
@@ -93,7 +93,7 @@ Use `torchmetrics.detection.MeanAveragePrecision`.
   { "name": "RandomZoomOut", "params": { "fill": [123, 117, 104], "p": 0.5 } },
   { "name": "RandomIoUCrop", "params": {} },
   { "name": "Resize", "params": { "size": [640, 640] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```
@@ -105,7 +105,7 @@ Use `torchmetrics.detection.MeanAveragePrecision`.
 ```json
 [
   { "name": "Resize", "params": { "size": [640, 640] } },
-  { "name": "ToTensor", "params": {} },
+  { "name": "ToImage", "params": {} },
   { "name": "Normalize", "params": { "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225] } }
 ]
 ```

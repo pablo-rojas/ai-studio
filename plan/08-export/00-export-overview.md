@@ -16,7 +16,7 @@ Export converts a trained model checkpoint (`.ckpt`) into a portable format that
 User navigates to Export page
          │
          ▼
-   Select experiment + run + checkpoint
+   Select experiment + checkpoint
    (best or last)
          │
          ▼
@@ -50,7 +50,6 @@ User navigates to Export page
 {
   "id": "export-xyz789",
   "experiment_id": "exp-a1b2c3d4",
-  "run_id": "run-e5f6g7h8",
   "checkpoint": "best",
   "format": "onnx",
   "options": {
@@ -110,7 +109,7 @@ Formats marked `available: False` are shown as "Coming Soon" in the GUI.
 | Oriented OD | Custom NMS for rotated boxes may not export cleanly to ONNX |
 | Segmentation | Large output tensor (H×W×C). Consider output resolution options. |
 | Instance Segmentation | Complex multi-output (boxes + masks + labels). ONNX export may need custom handling. |
-| Regression | Simple: single input → scalar output |
+| Regression | Simple: single input → output vector `(N, num_outputs)` |
 
 ### Pre-Export Model Preparation
 

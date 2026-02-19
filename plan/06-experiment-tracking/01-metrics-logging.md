@@ -6,7 +6,7 @@ This document describes the per-epoch metric logging format and how metrics are 
 
 ## 1. Metrics JSON Format
 
-Each training run produces a `metrics.json` file updated after every epoch:
+Each experiment's training produces a `metrics.json` file updated after every epoch:
 
 ```json
 {
@@ -93,7 +93,7 @@ During training, charts update in real-time:
 
 1. The `JSONMetricLogger` callback writes after each epoch.
 2. The GUI either:
-   - **Polls** the `/api/training/{run_id}/metrics` endpoint every 2–5 seconds.
+   - **Polls** the `/api/training/{experiment_id}/metrics` endpoint every 2–5 seconds.
    - **SSE** stream receives epoch-end events with new data points.
 3. Chart.js charts are updated by appending new data points without full re-render.
 
@@ -118,5 +118,5 @@ After training completes, the right column shows a summary:
 ## 6. Related Documents
 
 - Callbacks & JSON logger → [../05-training/04-callbacks-logging.md](../05-training/04-callbacks-logging.md)
-- Run management → [00-run-management.md](00-run-management.md)
+- Experiment management → [00-run-management.md](00-run-management.md)
 - Checkpoints → [02-checkpoints.md](02-checkpoints.md)

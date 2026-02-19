@@ -31,7 +31,7 @@ LightningModule   LightningDataModule
            ▼
    Per-epoch: metrics → JSON logger → metrics.json
    Checkpoints: best.ckpt, last.ckpt
-   Completion: run.json updated with final status
+   Completion: experiment.json updated with final status
 ```
 
 ---
@@ -80,7 +80,7 @@ class AIStudioModule(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = build_optimizer(self.parameters(), self.optimizer_config)
         scheduler = build_scheduler(optimizer, self.scheduler_config)
-        return {"optimizer": optimizer, "lr_schedulers": scheduler}
+        return {"optimizer": optimizer, "lr_scheduler": scheduler}
 ```
 
 ### Detection/Instance Segmentation Variation
@@ -109,10 +109,10 @@ def validation_step(self, batch, batch_idx):
 
 ```python
 class AIStudioDataModule(pl.LightningDataModule):
-    def __init__(self, project_path, split_index, task, augmentation_config, batch_size, num_workers=4):
+    def __init__(self, project_path, split_name, task, augmentation_config, batch_size, num_workers=4):
         super().__init__()
         self.project_path = project_path
-        self.split_index = split_index
+        self.split_name = split_name
         self.task = task
         self.augmentation_config = augmentation_config
         self.batch_size = batch_size
@@ -121,10 +121,11 @@ class AIStudioDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         dataset_json = load_dataset(self.project_path)
         images = dataset_json["images"]
+        split_index = dataset_json["split_names"].index(self.split_name)
         
-        train_images = [img for img in images if img["split"][self.split_index] == "train"]
-        val_images = [img for img in images if img["split"][self.split_index] == "val"]
-        test_images = [img for img in images if img["split"][self.split_index] == "test"]
+        train_images = [img for img in images if img["split"][split_index] == "train"]
+        val_images = [img for img in images if img["split"][split_index] == "val"]
+        test_images = [img for img in images if img["split"][split_index] == "test"]
         
         train_transform = build_augmentation_pipeline(self.augmentation_config["train"])
         val_transform = build_augmentation_pipeline(self.augmentation_config["val"])
@@ -150,13 +151,13 @@ class AIStudioDataModule(pl.LightningDataModule):
 ## 4. Trainer Factory (`app/training/trainer_factory.py`)
 
 ```python
-def build_trainer(run_dir: Path, experiment_config: dict) -> pl.Trainer:
+def build_trainer(exp_dir: Path, experiment_config: dict) -> pl.Trainer:
     hw = experiment_config["hardware"]
     hp = experiment_config["hyperparameters"]
     
     callbacks = [
         ModelCheckpoint(
-            dirpath=run_dir / "checkpoints",
+            dirpath=exp_dir / "checkpoints",
             filename="best",
             monitor="val_loss",
             mode="min",
@@ -168,7 +169,7 @@ def build_trainer(run_dir: Path, experiment_config: dict) -> pl.Trainer:
             mode="min",
         ),
         LearningRateMonitor(logging_interval="epoch"),
-        JSONMetricLogger(output_path=run_dir / "metrics.json"),
+        JSONMetricLogger(output_path=exp_dir / "metrics.json"),
     ]
     
     # Resolve device selection into Lightning args
@@ -176,8 +177,9 @@ def build_trainer(run_dir: Path, experiment_config: dict) -> pl.Trainer:
     precision = hw.get("precision", "32")
     
     return pl.Trainer(
-        default_root_dir=str(run_dir),
+        default_root_dir=str(exp_dir),
         max_epochs=hp["max_epochs"],
+        accumulate_grad_batches=hp.get("batch_multiplier", 1),
         accelerator=resolved["accelerator"],
         devices=resolved["devices"],
         strategy=resolved["strategy"],
@@ -190,31 +192,39 @@ def build_trainer(run_dir: Path, experiment_config: dict) -> pl.Trainer:
 
 ---
 
-## 5. Training Run Lifecycle
+## 5. Experiment Training Lifecycle
 
 ```
                     ┌─────────┐
-                    │ pending │  ← experiment created, not started
+                    │ created │  ← experiment created, config editable
                     └────┬────┘
-                         │  user clicks "Run"
+                         │  user clicks "Train"
                          ▼
                     ┌─────────┐
-                    │ running │  ← trainer.fit() in background task
+                    │ pending │  ← config locked, queued for execution
                     └────┬────┘
-                    ┌────┴────┐
-                    │         │
-                    ▼         ▼
-             ┌───────────┐ ┌────────┐
-             │ completed │ │ failed │  ← exception during training
-             └───────────┘ └────────┘
-                              │
-                              ▼ (user can retry)
-                         ┌─────────┐
-                         │ pending │
-                         └─────────┘
+                         ▼
+                    ┌──────────┐
+                    │ training │  ← trainer.fit() in background task
+                    └────┬─────┘
+                 ┌───┬───┴───┐
+                 │   │       │
+                 ▼   ▼       ▼
+          ┌───────────┐ ┌────────┐ ┌───────────┐
+          │ completed │ │ failed │ │ cancelled │  ← user stopped
+          └───────────┘ └────┬───┘ └───────────┘
+                           │
+                           ▼ (user clicks "Resume")
+                      ┌──────────┐
+                      │ training │
+                      └──────────┘
+
+Valid `status` values: `"created"`, `"pending"`, `"training"`, `"completed"`, `"failed"`, `"cancelled"`.
 ```
 
-Status transitions are written to `run.json` immediately.
+Status transitions are written to `experiment.json` immediately.
+
+At any point after training, the user can **restart** the experiment: all results are deleted and status resets to `"created"` (config becomes editable again).
 
 ---
 
@@ -224,11 +234,11 @@ Training is long-running. It runs as a background task:
 
 ```python
 # In the API router
-@router.post("/api/training/{experiment_id}/run")
-async def start_training(experiment_id: str, background_tasks: BackgroundTasks):
-    run_id = create_run(experiment_id)
-    background_tasks.add_task(execute_training, experiment_id, run_id)
-    return {"run_id": run_id, "status": "pending"}
+@router.post("/api/training/{project_id}/experiments/{experiment_id}/train")
+async def start_training(project_id: str, experiment_id: str, background_tasks: BackgroundTasks):
+    start_experiment_training(experiment_id)  # Sets status to "pending", locks config
+    background_tasks.add_task(execute_training, project_id, experiment_id)
+    return {"experiment_id": experiment_id, "status": "pending"}
 ```
 
 ### Progress Reporting
@@ -236,31 +246,30 @@ async def start_training(experiment_id: str, background_tasks: BackgroundTasks):
 The GUI polls for updates or uses SSE (Server-Sent Events) to receive live updates:
 
 1. The `JSONMetricLogger` callback writes to `metrics.json` after each epoch.
-2. An SSE endpoint `/api/training/{run_id}/stream` tails `metrics.json` and emits events.
+2. An SSE endpoint `/api/training/{project_id}/experiments/{experiment_id}/stream` tails `metrics.json` and emits events.
 3. The Training page's right column subscribes to the SSE stream and updates charts in real-time.
 
 ---
 
 ## 7. Concurrency
 
-- Only **one training run** should be active at a time per project (GPU resource management).
-- If a training run is already active, the "Run" button is disabled with a message.
+- Only **one experiment** should be training at a time per project (GPU resource management).
+- If an experiment is already training, the "Train" button is disabled with a message.
 - A global lock or semaphore prevents concurrent training starts.
 
 ---
 
 ## 8. Artifacts
 
-Each completed run produces:
+Each completed experiment produces:
 
 | Artifact | Location | Purpose |
 |----------|----------|---------|
-| `run.json` | `runs/<run-id>/` | Run metadata, status, final metrics |
-| `config.json` | `runs/<run-id>/` | Frozen copy of experiment config |
-| `metrics.json` | `runs/<run-id>/` | Per-epoch metrics array |
-| `best.ckpt` | `runs/<run-id>/checkpoints/` | Best model checkpoint (lowest val_loss) |
-| `last.ckpt` | `runs/<run-id>/checkpoints/` | Last epoch checkpoint |
-| `training.log` | `runs/<run-id>/logs/` | Detailed training log |
+| `experiment.json` | `experiments/<exp-id>/` | Config + status + final metrics |
+| `metrics.json` | `experiments/<exp-id>/` | Per-epoch metrics array |
+| `best.ckpt` | `experiments/<exp-id>/checkpoints/` | Best model checkpoint (lowest val_loss) |
+| `last.ckpt` | `experiments/<exp-id>/checkpoints/` | Last epoch checkpoint |
+| `training.log` | `experiments/<exp-id>/logs/` | Detailed training log |
 
 ---
 

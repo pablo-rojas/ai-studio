@@ -47,7 +47,7 @@ app/api/
 ├── projects.py         # Project CRUD
 ├── datasets.py         # Dataset import / browse / manage
 ├── splits.py           # Split CRUD
-├── training.py         # Experiment + run management, start/stop training
+├── training.py         # Experiment management, start/stop training
 ├── evaluation.py       # Evaluation CRUD, run evaluation
 ├── export.py           # Export CRUD, trigger export, download
 └── system.py           # GPU info, workspace stats, health
@@ -60,7 +60,7 @@ These routes serve the Jinja2 HTML templates:
 | Route | Template | Page |
 |-------|----------|------|
 | `GET /` | Redirect to `/projects` | — |
-| `GET /projects` | `pages/projects.html` | Project page |
+| `GET /projects` | `pages/project.html` | Project page |
 | `GET /projects/{id}/dataset` | `pages/dataset.html` | Dataset page |
 | `GET /projects/{id}/split` | `pages/split.html` | Split page |
 | `GET /projects/{id}/training` | `pages/training.html` | Training page |
@@ -130,7 +130,7 @@ Long-running operations use FastAPI's `BackgroundTasks`:
 
 ### Concurrency
 
-- Only **one training run** at a time (GPU exclusivity).
+- Only **one experiment training** at a time (GPU exclusivity).
 - Evaluations can run concurrently with each other (if GPU memory allows).
 - Exports are quick (seconds to minutes) and run sequentially.
 
@@ -144,7 +144,7 @@ training_lock = asyncio.Lock()
 
 async def acquire_training():
     if training_lock.locked():
-        raise HTTPException(409, "A training run is already in progress")
+        raise HTTPException(409, "An experiment is already training")
     await training_lock.acquire()
 ```
 
@@ -186,10 +186,10 @@ For live training updates:
 ```python
 from starlette.responses import StreamingResponse
 
-@router.get("/api/training/{run_id}/stream")
-async def training_stream(run_id: str):
+@router.get("/api/training/{project_id}/experiments/{experiment_id}/stream")
+async def training_stream(project_id: str, experiment_id: str):
     async def event_generator():
-        queue = subscribe_to_run(run_id)
+        queue = subscribe_to_experiment(experiment_id)
         try:
             while True:
                 event = await queue.get()

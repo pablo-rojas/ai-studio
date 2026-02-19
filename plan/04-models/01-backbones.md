@@ -81,8 +81,8 @@ For detection and segmentation tasks, torchvision models already include FPN and
 | Task | Backbone Usage |
 |------|---------------|
 | Classification | Any backbone → GAP → FC head |
-| Anomaly Detection | Any backbone → GAP → FC head (binary) |
-| Regression | Any backbone → GAP → FC head (scalar) |
+| Anomaly Detection | ResNet-18 (frozen) as feature extractor for teacher distillation — no FC/binary head (see note below) |
+| Regression | Any backbone → GAP → FC head (`num_outputs`) |
 | Object Detection | ResNet-50 + FPN (built into torchvision detection models) |
 | Oriented OD | ResNet-50 + FPN (custom head) |
 | Segmentation | ResNet-50/101 or MobileNetV3 (built into torchvision segmentation models) |
@@ -90,7 +90,9 @@ For detection and segmentation tasks, torchvision models already include FPN and
 
 For detection and segmentation, the backbone is part of the full architecture (e.g., `fasterrcnn_resnet50_fpn` includes both backbone and head). The user selects the full architecture rather than backbone + head separately.
 
-For classification, anomaly detection, and regression, the user selects a backbone and the head is auto-determined by the task type.
+For classification and regression, the user selects a backbone and the head is auto-determined by the task type.
+
+**Anomaly Detection note**: The backbone (ResNet-18, pretrained) is used purely as a **frozen feature extractor** to train the teacher network via knowledge distillation. There is no classification head — anomaly scores are derived from the discrepancy between teacher and student descriptors. This is a custom pipeline (not torchvision-based); see [02-heads.md §2.2](02-heads.md) and [02-anomaly-detection.md](../03-tasks/02-anomaly-detection.md) for details.
 
 ---
 
@@ -98,7 +100,7 @@ For classification, anomaly detection, and regression, the user selects a backbo
 
 All backbones expect:
 - **Input shape**: `(N, 3, H, W)` — batch of 3-channel RGB images.
-- **Value range**: `[0, 1]` (after `ToTensor`), then normalized with ImageNet stats.
+- **Value range**: `[0, 1]` (after `ToImage` + `ToDtype`), then normalized with ImageNet stats.
 - **Minimum input size**: typically 32×32 (but recommended ≥ 224×224 for pretrained weights).
 
 ---

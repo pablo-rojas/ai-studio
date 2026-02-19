@@ -21,6 +21,7 @@ All hyperparameters for an experiment are stored in `experiment.json` under the 
     "gamma": 0.1,
     "poly_power": 0.9,
     "batch_size": 32,
+    "batch_multiplier": 1,
     "max_epochs": 50,
     "early_stopping_patience": 10,
     "loss": "cross_entropy",
@@ -67,6 +68,7 @@ See individual task documents for available loss functions per task:
 | Parameter | Type | Range | Description |
 |-----------|------|-------|-------------|
 | `batch_size` | int | 1–256 | Mini-batch size (constrained by GPU memory) |
+| `batch_multiplier` | int | 1–64 | Gradient accumulation steps. Simulates an effective batch size of `batch_size × batch_multiplier` without extra GPU memory. |
 | `max_epochs` | int | 1–1000 | Maximum training epochs |
 | `early_stopping_patience` | int | 0–100 | Epochs without improvement before stopping (0 = disabled) |
 | `dropout` | float | 0.0–0.9 | Dropout rate in the head |
@@ -75,7 +77,7 @@ See individual task documents for available loss functions per task:
 
 ## 3. Defaults Per Task
 
-### Classification / Anomaly Detection
+### Classification
 
 ```json
 {
@@ -85,12 +87,51 @@ See individual task documents for available loss functions per task:
   "scheduler": "cosine",
   "warmup_epochs": 5,
   "batch_size": 32,
+  "batch_multiplier": 1,
   "max_epochs": 50,
   "early_stopping_patience": 10,
   "loss": "cross_entropy",
   "dropout": 0.2
 }
 ```
+
+### Anomaly Detection
+
+Anomaly detection uses a multi-stage student–teacher pipeline with **separate hyperparameters per stage**. This is a custom implementation (not based on torchvision), so defaults here are approximate and subject to change. See [02-anomaly-detection.md](../03-tasks/02-anomaly-detection.md) §10 for the authoritative defaults.
+
+**Stage 1 — Teacher Distillation** (distils frozen backbone into a smaller patch-CNN):
+
+```json
+{
+  "optimizer": "adam",
+  "learning_rate": 0.0002,
+  "weight_decay": 0.00001,
+  "batch_size": 64,
+  "max_epochs": 200,
+  "loss": "distillation_mse + compactness",
+  "descriptor_dim": 512,
+  "backbone": "resnet18",
+  "pretrained": true
+}
+```
+
+**Stage 2 — Student Training** (each student regresses teacher's normalized descriptors):
+
+```json
+{
+  "optimizer": "adam",
+  "learning_rate": 0.0001,
+  "weight_decay": 0.00001,
+  "batch_size": 1,
+  "max_epochs": 25,
+  "loss": "mse",
+  "n_students": 3,
+  "patch_size": 33,
+  "image_size": 256
+}
+```
+
+Standard hyperparameters like `scheduler`, `early_stopping_patience`, and `dropout` do not apply in the same way and will be finalized during implementation.
 
 ### Object Detection / Oriented OD / Instance Segmentation
 
@@ -104,6 +145,7 @@ See individual task documents for available loss functions per task:
   "step_size": 10,
   "gamma": 0.1,
   "batch_size": 8,
+  "batch_multiplier": 1,
   "max_epochs": 50,
   "early_stopping_patience": 15,
   "loss": "default"
@@ -121,6 +163,7 @@ See individual task documents for available loss functions per task:
   "scheduler": "poly",
   "poly_power": 0.9,
   "batch_size": 8,
+  "batch_multiplier": 1,
   "max_epochs": 60,
   "early_stopping_patience": 15,
   "loss": "ce_dice"
@@ -136,6 +179,7 @@ See individual task documents for available loss functions per task:
   "weight_decay": 0.0001,
   "scheduler": "cosine",
   "batch_size": 32,
+  "batch_multiplier": 1,
   "max_epochs": 50,
   "early_stopping_patience": 10,
   "loss": "mse",
@@ -178,6 +222,7 @@ In the Training page center column, the hyperparameter form includes:
 | Warmup Epochs | Number input | |
 | Step Size / Gamma | Number inputs | Only shown when scheduler = step |
 | Batch Size | Number input | Powers of 2 recommended |
+| Batch Multiplier | Number input | 1–64; effective batch size shown as read-only label: `batch_size × batch_multiplier` |
 | Max Epochs | Number input | |
 | Early Stopping | Number input | 0 to disable |
 | Loss Function | Dropdown | Filtered by task |
