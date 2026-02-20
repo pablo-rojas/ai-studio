@@ -220,7 +220,7 @@ async def list_dataset_images(
     project_id: str,
     dataset_service: DatasetServiceDep,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
+    page_size: Annotated[int, Query(ge=1, le=500)] = 50,
     sort_by: Annotated[DatasetImageSortBy, Query()] = "filename",
     sort_order: Annotated[SortOrder, Query()] = "asc",
     filter_class: Annotated[str | None, Query()] = None,

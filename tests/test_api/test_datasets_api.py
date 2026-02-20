@@ -46,6 +46,13 @@ async def test_dataset_import_and_browse_via_api(test_client, workspace: Path) -
     assert images_payload["page_size"] == 2
     assert len(images_payload["items"]) == 2
 
+    large_page_response = await test_client.get(
+        f"/api/datasets/{project_id}/images",
+        params={"page": 1, "page_size": 500},
+    )
+    assert large_page_response.status_code == 200
+    assert large_page_response.json()["data"]["page_size"] == 500
+
     cats_only_response = await test_client.get(
         f"/api/datasets/{project_id}/images",
         params={"filter_class": "cats"},
@@ -121,7 +128,11 @@ async def test_hx_dataset_image_listing_supports_filters_and_pagination(
     )
     assert page_response.status_code == 200
     assert 'id="dataset-image-list"' in page_response.text
-    assert "Page 1 of 3" in page_response.text
+    assert 'id="dataset-page-input-top"' in page_response.text
+    assert 'id="dataset-page-input-bottom"' in page_response.text
+    assert page_response.text.count("Previous") >= 2
+    assert page_response.text.count("Next") >= 2
+    assert page_response.text.count("of 3") >= 2
     assert "cat_hx_001.png" in page_response.text
 
     filtered_response = await test_client.get(

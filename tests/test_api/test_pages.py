@@ -77,6 +77,11 @@ async def test_dataset_page_renders_initial_image_grid_after_import(
     assert "cat_page_001.png" in response.text
     assert "dog_page_001.png" in response.text
     assert "Showing 1" in response.text
+    assert 'option value="500"' in response.text
+    assert 'option value="24"' not in response.text
+    assert "object-contain" in response.text
+    assert 'id="dataset-page-input-top"' in response.text
+    assert 'id="dataset-page-input-bottom"' in response.text
     assert f"/api/datasets/{project_id}/thumbnails/cat_page_001.png" in response.text
     assert f"/api/datasets/{project_id}/images" in response.text
     assert "/api/datasets//thumbnails/" not in response.text

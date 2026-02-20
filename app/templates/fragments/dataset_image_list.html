@@ -1,3 +1,73 @@
+{% macro listing_hidden_fields(query) -%}
+<input type="hidden" name="page_size" value="{{ query.page_size }}">
+<input type="hidden" name="sort_by" value="{{ query.sort_by }}">
+<input type="hidden" name="sort_order" value="{{ query.sort_order }}">
+<input type="hidden" name="filter_class" value="{{ query.filter_class or '' }}">
+<input type="hidden" name="search" value="{{ query.search or '' }}">
+{%- endmacro %}
+
+{% macro pagination_controls(dataset_project_id, listing, query, position) -%}
+{% set current_page = listing["page"] %}
+{% set total_pages = listing["total_pages"] if listing["total_pages"] else 1 %}
+{% set prev_page = current_page - 1 %}
+{% set next_page = current_page + 1 %}
+{% set has_prev = current_page > 1 %}
+{% set has_next = listing["total_pages"] > 0 and current_page < listing["total_pages"] %}
+<div class="flex flex-wrap items-center justify-between gap-2">
+  <form
+    hx-get="/api/datasets/{{ dataset_project_id }}/images"
+    hx-target="#dataset-image-list"
+    hx-swap="outerHTML"
+    class="flex items-center gap-2"
+  >
+    {{ listing_hidden_fields(query) }}
+    <button
+      type="submit"
+      name="page"
+      value="{{ prev_page }}"
+      {% if not has_prev %}disabled{% endif %}
+      class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:enabled:hover:bg-slate-800"
+    >
+      Previous
+    </button>
+    <button
+      type="submit"
+      name="page"
+      value="{{ next_page }}"
+      {% if not has_next %}disabled{% endif %}
+      class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:enabled:hover:bg-slate-800"
+    >
+      Next
+    </button>
+  </form>
+
+  <form
+    hx-get="/api/datasets/{{ dataset_project_id }}/images"
+    hx-target="#dataset-image-list"
+    hx-swap="outerHTML"
+    class="flex items-center gap-2"
+  >
+    {{ listing_hidden_fields(query) }}
+    <label
+      for="dataset-page-input-{{ position }}"
+      class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400"
+    >
+      Page
+    </label>
+    <input
+      id="dataset-page-input-{{ position }}"
+      type="number"
+      name="page"
+      value="{{ current_page }}"
+      min="1"
+      max="{{ total_pages }}"
+      class="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+    >
+    <span class="text-xs text-slate-500 dark:text-slate-400">of {{ total_pages }}</span>
+  </form>
+</div>
+{%- endmacro %}
+
 <div id="dataset-image-list">
   {% set dataset_project_id = project_id if project_id is defined else project.id %}
   {% if listing %}
@@ -10,17 +80,15 @@
     {% endif %}
 
   <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div class="mb-4 space-y-3">
       <p class="text-sm text-slate-600 dark:text-slate-300">
         Showing {{ start_index }}–{{ end_index }} of {{ listing["total_items"] }} images
       </p>
-      <p class="text-xs text-slate-500 dark:text-slate-400">
-        Page {{ listing["page"] }} of {{ listing["total_pages"] if listing["total_pages"] else 1 }}
-      </p>
+      {{ pagination_controls(dataset_project_id, listing, query, "top") }}
     </div>
 
     {% if listing["items"] %}
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+    <div class="dataset-image-grid grid gap-3">
       {% for image in listing["items"] %}
       <button
         type="button"
@@ -30,12 +98,12 @@
         hx-swap="innerHTML"
         class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left transition hover:border-blue-400 hover:shadow-sm dark:border-slate-700 dark:bg-slate-950/60"
       >
-        <div class="aspect-square overflow-hidden bg-slate-100 dark:bg-slate-900">
+        <div class="h-32 overflow-hidden bg-slate-100 dark:bg-slate-900">
           <img
             src="/api/datasets/{{ dataset_project_id }}/thumbnails/{{ image.filename }}"
             alt="{{ image.filename }}"
             loading="lazy"
-            class="h-full w-full object-cover"
+            class="h-full w-full object-contain"
           >
         </div>
         <div class="space-y-1 p-2">
@@ -57,48 +125,8 @@
     </div>
     {% endif %}
 
-    {% set prev_page = listing["page"] - 1 %}
-    {% set next_page = listing["page"] + 1 %}
-    {% set has_prev = listing["page"] > 1 %}
-    {% set has_next = listing["total_pages"] > 0 and listing["page"] < listing["total_pages"] %}
-
-    <div class="mt-4 flex items-center justify-end gap-2">
-      <button
-        type="button"
-        hx-get="/api/datasets/{{ dataset_project_id }}/images"
-        hx-vals='{{ {
-          "page": prev_page,
-          "page_size": query.page_size,
-          "sort_by": query.sort_by,
-          "sort_order": query.sort_order,
-          "filter_class": query.filter_class or "",
-          "search": query.search or "",
-        } | tojson }}'
-        hx-target="#dataset-image-list"
-        hx-swap="outerHTML"
-        {% if not has_prev %}disabled{% endif %}
-        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:enabled:hover:bg-slate-800"
-      >
-        Previous
-      </button>
-      <button
-        type="button"
-        hx-get="/api/datasets/{{ dataset_project_id }}/images"
-        hx-vals='{{ {
-          "page": next_page,
-          "page_size": query.page_size,
-          "sort_by": query.sort_by,
-          "sort_order": query.sort_order,
-          "filter_class": query.filter_class or "",
-          "search": query.search or "",
-        } | tojson }}'
-        hx-target="#dataset-image-list"
-        hx-swap="outerHTML"
-        {% if not has_next %}disabled{% endif %}
-        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:enabled:hover:bg-slate-800"
-      >
-        Next
-      </button>
+    <div class="mt-4">
+      {{ pagination_controls(dataset_project_id, listing, query, "bottom") }}
     </div>
   </div>
   {% else %}

@@ -223,7 +223,7 @@ class DatasetImageListQuery(BaseModel):
     """Query parameters for browsing dataset images."""
 
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=50, ge=1, le=200)
+    page_size: int = Field(default=50, ge=1, le=500)
     sort_by: DatasetImageSortBy = "filename"
     sort_order: SortOrder = "asc"
     filter_class: str | None = None
