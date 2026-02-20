@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 import torch
 from PIL import Image
+from torchvision.transforms import v2
 
 from app.datasets.augmentations import build_augmentation_pipeline
 from app.models.catalog import get_default_augmentations
@@ -28,3 +29,44 @@ def test_build_augmentation_pipeline_from_classification_defaults() -> None:
 def test_build_augmentation_pipeline_rejects_unknown_transform() -> None:
     with pytest.raises(ValueError, match="Unknown augmentation transform"):
         build_augmentation_pipeline([{"name": "UnknownTransform", "params": {}}])
+
+
+def test_build_augmentation_pipeline_wraps_transform_with_apply_probability() -> None:
+    pipeline = build_augmentation_pipeline(
+        [
+            {
+                "name": "RandomRotation",
+                "params": {"degrees": [-15, 15], "apply_p": 0.25},
+            }
+        ]
+    )
+
+    wrapped_transform = pipeline.transforms[0]
+    assert isinstance(wrapped_transform, v2.RandomApply)
+    assert wrapped_transform.p == pytest.approx(0.25)
+    assert isinstance(wrapped_transform.transforms[0], v2.RandomRotation)
+
+
+def test_build_augmentation_pipeline_skips_wrapper_for_apply_probability_one() -> None:
+    pipeline = build_augmentation_pipeline(
+        [
+            {
+                "name": "RandomRotation",
+                "params": {"degrees": [-15, 15], "apply_p": 1.0},
+            }
+        ]
+    )
+
+    assert isinstance(pipeline.transforms[0], v2.RandomRotation)
+
+
+def test_build_augmentation_pipeline_rejects_invalid_apply_probability() -> None:
+    with pytest.raises(ValueError, match="apply_p"):
+        build_augmentation_pipeline(
+            [
+                {
+                    "name": "RandomRotation",
+                    "params": {"degrees": [-15, 15], "apply_p": 1.2},
+                }
+            ]
+        )

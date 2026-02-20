@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from urllib.parse import urlencode
 
 import pytest
 from PIL import Image
@@ -88,7 +90,9 @@ async def test_training_hx_experiment_detail_and_form_patch_flow(
         json={"name": "HX Baseline"},
     )
     assert create_response.status_code == 200
-    experiment_id = create_response.json()["data"]["id"]
+    created_payload = create_response.json()["data"]
+    experiment_id = created_payload["id"]
+    original_val_augmentations = created_payload["augmentations"]["val"]
 
     detail_response = await test_client.get(
         f"/api/training/{project_id}/experiments/{experiment_id}",
@@ -96,39 +100,98 @@ async def test_training_hx_experiment_detail_and_form_patch_flow(
     )
     assert detail_response.status_code == 200
     assert 'id="training-experiment-workspace"' in detail_response.text
-    assert "Loss Curves" in detail_response.text
-    assert "F1 Curves" in detail_response.text
+    assert "Loss Curves" not in detail_response.text
+    assert "F1 Curves" not in detail_response.text
+    assert "data-training-loss-train-latest" not in detail_response.text
+    assert "data-training-metric-train-latest" not in detail_response.text
+    assert "data-training-loss-axis-x" in detail_response.text
+    assert "data-training-loss-axis-y" in detail_response.text
+    assert "data-training-metric-axis-x" in detail_response.text
+    assert "data-training-metric-axis-y" in detail_response.text
     assert "data-training-metric-train" in detail_response.text
     assert "data-training-metric-val" in detail_response.text
+    assert 'data-training-config-section="setup"' in detail_response.text
+    assert 'data-training-config-section="optimization"' in detail_response.text
+    assert 'data-training-config-section="hardware"' in detail_response.text
+    assert "training-config-section" in detail_response.text
+    assert "data-training-section-header" in detail_response.text
+    assert "data-training-section-chevron" in detail_response.text
+    assert 'name="hardware.selected_devices[]"' in detail_response.text
+    assert "data-training-effective-batch" in detail_response.text
+    assert "Name and dataset split selection." not in detail_response.text
+    assert "Model backbone and head behavior." not in detail_response.text
+    assert "Optimizer and learning-rate schedule." not in detail_response.text
+    assert "Loss function and loss-specific parameters." not in detail_response.text
+    assert "Epoch, batch, and stopping controls." not in detail_response.text
+    assert "Device selection and precision settings." not in detail_response.text
+    assert "Enable or disable training transforms." not in detail_response.text
+    assert "Augmentation Toggles" not in detail_response.text
+    assert 'data-augmentation-row="RandomResizedCrop"' in detail_response.text
 
+    patch_form_payload: list[tuple[str, str]] = [
+        ("name", "HX Baseline Updated"),
+        ("split_name", "80-10-10"),
+        ("model.backbone", "resnet34"),
+        ("model.pretrained", "true"),
+        ("model.freeze_backbone", "false"),
+        ("hyperparameters.optimizer", "adamw"),
+        ("hyperparameters.learning_rate", "0.0005"),
+        ("hyperparameters.weight_decay", "0.0001"),
+        ("hyperparameters.momentum", "0.9"),
+        ("hyperparameters.scheduler", "cosine"),
+        ("hyperparameters.warmup_epochs", "5"),
+        ("hyperparameters.step_size", "10"),
+        ("hyperparameters.gamma", "0.1"),
+        ("hyperparameters.poly_power", "0.9"),
+        ("hyperparameters.batch_size", "16"),
+        ("hyperparameters.batch_multiplier", "2"),
+        ("hyperparameters.max_epochs", "12"),
+        ("hyperparameters.early_stopping_patience", "3"),
+        ("hyperparameters.loss", "cross_entropy"),
+        ("hyperparameters.label_smoothing", "0.1"),
+        ("hyperparameters.dropout", "0.25"),
+        ("hardware.precision", "32"),
+        ("hardware.selected_devices[]", "cpu"),
+    ]
+    train_augmentations = [
+        {
+            "name": "RandomResizedCrop",
+            "params": {"size": [224, 224], "scale": [0.75, 1.0], "apply_p": 0.8},
+        },
+        {"name": "RandomHorizontalFlip", "params": {"p": 0.3}},
+        {"name": "RandomRotation", "params": {"degrees": [-20, 20], "apply_p": 0.6}},
+        {
+            "name": "ColorJitter",
+            "params": {
+                "brightness": 0.3,
+                "contrast": 0.3,
+                "saturation": 0.2,
+                "hue": 0.04,
+                "apply_p": 0.7,
+            },
+        },
+        {"name": "ToImage", "params": {}},
+        {
+            "name": "Normalize",
+            "params": {
+                "mean": [0.485, 0.456, 0.406],
+                "std": [0.229, 0.224, 0.225],
+            },
+        },
+    ]
+    for step in train_augmentations:
+        patch_form_payload.append(("augmentations.train[]", json.dumps(step)))
+    for step in original_val_augmentations:
+        patch_form_payload.append(("augmentations.val[]", json.dumps(step)))
+
+    encoded_payload = urlencode(patch_form_payload)
     patch_response = await test_client.patch(
         f"/api/training/{project_id}/experiments/{experiment_id}",
-        data={
-            "name": "HX Baseline Updated",
-            "split_name": "80-10-10",
-            "model.backbone": "resnet34",
-            "model.pretrained": "true",
-            "model.freeze_backbone": "false",
-            "hyperparameters.optimizer": "adamw",
-            "hyperparameters.learning_rate": "0.0005",
-            "hyperparameters.weight_decay": "0.0001",
-            "hyperparameters.momentum": "0.9",
-            "hyperparameters.scheduler": "cosine",
-            "hyperparameters.warmup_epochs": "5",
-            "hyperparameters.step_size": "10",
-            "hyperparameters.gamma": "0.1",
-            "hyperparameters.poly_power": "0.9",
-            "hyperparameters.batch_size": "16",
-            "hyperparameters.batch_multiplier": "2",
-            "hyperparameters.max_epochs": "12",
-            "hyperparameters.early_stopping_patience": "3",
-            "hyperparameters.loss": "cross_entropy",
-            "hyperparameters.label_smoothing": "0.1",
-            "hyperparameters.dropout": "0.25",
-            "hardware.precision": "32",
-            "hardware.selected_devices[]": ["cpu"],
+        content=encoded_payload,
+        headers={
+            "HX-Request": "true",
+            "Content-Type": "application/x-www-form-urlencoded",
         },
-        headers={"HX-Request": "true"},
     )
     assert patch_response.status_code == 200
     assert 'id="training-experiment-workspace"' in patch_response.text
@@ -144,6 +207,8 @@ async def test_training_hx_experiment_detail_and_form_patch_flow(
     assert updated_payload["hyperparameters"]["optimizer"] == "adamw"
     assert updated_payload["hyperparameters"]["batch_size"] == 16
     assert updated_payload["hyperparameters"]["dropout"] == pytest.approx(0.25)
+    assert updated_payload["augmentations"]["train"] == train_augmentations
+    assert updated_payload["augmentations"]["val"] == original_val_augmentations
 
 
 @pytest.mark.asyncio

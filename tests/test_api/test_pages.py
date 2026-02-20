@@ -301,15 +301,48 @@ async def test_training_page_renders_experiment_editor_and_live_chart_workspace(
     assert "Training" in response.text
     assert "New Experiment" in response.text
     assert "Start Training" in response.text
-    assert "Loss Curves" in response.text
-    assert "F1 Curves" in response.text
+    assert "Experiment Setup" in response.text
+    assert "Architecture" in response.text
+    assert "Optimization" in response.text
+    assert "Objective (Loss)" in response.text
+    assert "Training Settings" in response.text
+    assert "Hardware" in response.text
+    assert "Data Augmentation" in response.text
+    assert "Augmentation Toggles" not in response.text
+    assert 'data-augmentation-row="RandomResizedCrop"' in response.text
+    assert 'data-augmentation-row="RandomHorizontalFlip"' in response.text
+    assert 'data-augmentation-row="RandomRotation"' in response.text
+    assert 'data-augmentation-row="ColorJitter"' in response.text
+    assert "data-training-augmentation-hidden-fields" in response.text
+    assert "data-training-augmentations" in response.text
+    assert "training-config-section" in response.text
+    assert "data-training-section-header" in response.text
+    assert "data-training-section-chevron" in response.text
+    assert 'data-training-config-section="hardware"' in response.text
+    assert 'name="hardware.selected_devices[]"' in response.text
+    assert "data-training-effective-batch" in response.text
+    assert "Name and dataset split selection." not in response.text
+    assert "Model backbone and head behavior." not in response.text
+    assert "Optimizer and learning-rate schedule." not in response.text
+    assert "Loss function and loss-specific parameters." not in response.text
+    assert "Epoch, batch, and stopping controls." not in response.text
+    assert "Device selection and precision settings." not in response.text
+    assert "Enable or disable training transforms." not in response.text
     assert "Epoch" in response.text
-    assert "Loss" in response.text
-    assert "F1" in response.text
+    assert "Loss Curves" not in response.text
+    assert "F1 Curves" not in response.text
+    assert "data-training-loss-train-latest" not in response.text
+    assert "data-training-loss-val-latest" not in response.text
+    assert "data-training-metric-train-latest" not in response.text
+    assert "data-training-metric-val-latest" not in response.text
     assert "data-training-loss-x-ticks" in response.text
     assert "data-training-loss-y-ticks" in response.text
+    assert "data-training-loss-axis-x" in response.text
+    assert "data-training-loss-axis-y" in response.text
     assert "data-training-metric-x-ticks" in response.text
     assert "data-training-metric-y-ticks" in response.text
+    assert "data-training-metric-axis-x" in response.text
+    assert "data-training-metric-axis-y" in response.text
     assert "data-training-metric-train" in response.text
     assert "data-training-metric-val" in response.text
     assert "data-training-epoch-label" in response.text

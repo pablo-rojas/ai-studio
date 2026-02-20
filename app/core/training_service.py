@@ -22,6 +22,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.core.project_service import ProjectService
+from app.core.training_form_layout import TrainingSection, get_training_sections
 from app.models.catalog import build_default_training_config
 from app.schemas.dataset import DatasetMetadata
 from app.schemas.training import (
@@ -38,6 +39,7 @@ from app.schemas.training import (
 )
 from app.storage.json_store import JsonStore
 from app.storage.paths import WorkspacePaths
+from app.training.hardware import list_device_options
 from app.training.subprocess_runner import TrainingProcessHandle, TrainingSubprocessRunner
 from app.training.worker import run_experiment_training
 
@@ -315,6 +317,14 @@ class TrainingService:
             raise ValidationError(
                 f"Metrics metadata is invalid for experiment '{experiment_id}'."
             ) from exc
+
+    def get_training_form_sections(self, task: str) -> tuple[TrainingSection, ...]:
+        """Return collapsible section metadata for the training configuration form."""
+        return get_training_sections(task)
+
+    def list_available_devices(self) -> list[dict[str, object]]:
+        """Return hardware options for the training configuration form."""
+        return [option.to_payload() for option in list_device_options()]
 
     def _start_training_internal(
         self,

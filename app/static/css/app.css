@@ -11,6 +11,62 @@
   display: none !important;
 }
 
+.training-config-section {
+  overflow: hidden;
+}
+
+.training-config-section > summary[data-training-section-header] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  list-style: none;
+  padding: 0.5rem 0.75rem;
+  transition: background-color 120ms ease;
+}
+
+.training-config-section > summary[data-training-section-header]::-webkit-details-marker {
+  display: none;
+}
+
+.training-config-section > summary[data-training-section-header]:hover {
+  background-color: rgb(248 250 252);
+}
+
+.training-config-section[open] > summary[data-training-section-header] {
+  background-color: rgb(248 250 252);
+}
+
+.dark .training-config-section > summary[data-training-section-header]:hover {
+  background-color: rgb(15 23 42 / 0.6);
+}
+
+.dark .training-config-section[open] > summary[data-training-section-header] {
+  background-color: rgb(15 23 42 / 0.6);
+}
+
+.training-config-section > summary[data-training-section-header]:focus-visible {
+  outline: 2px solid rgb(59 130 246 / 0.55);
+  outline-offset: 2px;
+}
+
+.training-config-section > .training-config-section-body {
+  border-top: 1px solid rgb(226 232 240);
+}
+
+.dark .training-config-section > .training-config-section-body {
+  border-top-color: rgb(51 65 85);
+}
+
+.training-config-section [data-training-section-chevron] {
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+
+.training-config-section[open] [data-training-section-chevron] {
+  transform: rotate(90deg);
+}
+
 .dataset-image-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

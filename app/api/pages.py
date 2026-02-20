@@ -17,6 +17,7 @@ from app.core.dataset_service import DatasetService
 from app.core.exceptions import NotFoundError
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
+from app.core.training_form_layout import TrainingSection
 from app.core.training_service import TrainingService
 from app.schemas.dataset import DatasetImageListQuery
 
@@ -35,6 +36,19 @@ _CLASSIFICATION_BACKBONES: tuple[tuple[str, str], ...] = (
     ("mobilenet_v3_small", "MobileNetV3-Small"),
     ("mobilenet_v3_large", "MobileNetV3-Large"),
 )
+
+
+def _serialize_training_sections(
+    sections: tuple[TrainingSection, ...],
+) -> dict[str, dict[str, object]]:
+    return {
+        section.id: {
+            "title": section.title,
+            "description": section.description,
+            "default_open": section.default_open,
+        }
+        for section in sections
+    }
 
 
 @router.get("/", include_in_schema=False)
@@ -164,6 +178,10 @@ async def training_page(
     selected_experiment: dict[str, object] | None = None
     selected_metrics: dict[str, object] = {"epochs": []}
     selected_experiment_id = request.query_params.get("experiment_id")
+    training_sections = _serialize_training_sections(
+        training_service.get_training_form_sections(project.task)
+    )
+    available_devices = training_service.list_available_devices()
 
     try:
         dataset_model = dataset_service.get_dataset(project_id)
@@ -208,6 +226,8 @@ async def training_page(
             "selected_experiment_id": selected_experiment_id,
             "selected_metrics": selected_metrics,
             "backbone_options": _CLASSIFICATION_BACKBONES,
+            "training_sections": training_sections,
+            "available_devices": available_devices,
             "active_page": "training",
         },
     )

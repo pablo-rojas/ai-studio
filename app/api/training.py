@@ -15,6 +15,7 @@ from app.api.dependencies import get_dataset_service, get_training_service
 from app.api.responses import is_hx_request, ok_response
 from app.core.dataset_service import DatasetService
 from app.core.exceptions import NotFoundError
+from app.core.training_form_layout import TrainingSection
 from app.core.training_service import TrainingService
 from app.schemas.training import ExperimentCreate, ExperimentUpdate
 
@@ -33,6 +34,19 @@ _CLASSIFICATION_BACKBONES: tuple[tuple[str, str], ...] = (
     ("mobilenet_v3_small", "MobileNetV3-Small"),
     ("mobilenet_v3_large", "MobileNetV3-Large"),
 )
+
+
+def _serialize_training_sections(
+    sections: tuple[TrainingSection, ...],
+) -> dict[str, dict[str, object]]:
+    return {
+        section.id: {
+            "title": section.title,
+            "description": section.description,
+            "default_open": section.default_open,
+        }
+        for section in sections
+    }
 
 
 def _render_experiment_list_fragment(
@@ -58,9 +72,11 @@ def _render_experiment_detail_fragment(
     request: Request,
     *,
     project_id: str,
-    experiment,
-    metrics,
+    experiment: dict[str, Any],
+    metrics: dict[str, Any],
     split_names: list[str],
+    training_sections: dict[str, dict[str, object]],
+    available_devices: list[dict[str, object]],
 ):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
@@ -72,6 +88,8 @@ def _render_experiment_detail_fragment(
             "metrics": metrics,
             "split_names": split_names,
             "backbone_options": _CLASSIFICATION_BACKBONES,
+            "training_sections": training_sections,
+            "available_devices": available_devices,
         },
     )
 
@@ -167,18 +185,25 @@ def _render_workspace_for_hx(
     dataset_service: DatasetService,
 ):
     experiment = training_service.get_experiment(project_id, experiment_id)
+    project = training_service.project_service.get_project(project_id)
     metrics = training_service.get_metrics(project_id, experiment_id)
     split_names = _get_split_names(
         dataset_service=dataset_service,
         project_id=project_id,
         fallback_split_name=experiment.split_name,
     )
+    training_sections = _serialize_training_sections(
+        training_service.get_training_form_sections(project.task)
+    )
+    available_devices = training_service.list_available_devices()
     return _render_experiment_detail_fragment(
         request,
         project_id=project_id,
         experiment=experiment.model_dump(mode="json"),
         metrics=metrics.model_dump(mode="json"),
         split_names=split_names,
+        training_sections=training_sections,
+        available_devices=available_devices,
     )
 
 

@@ -44,17 +44,6 @@
               class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
           </label>
-          <label class="block space-y-1">
-            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Split</span>
-            <select
-              name="split_name"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            >
-              {% for split_name in split_names %}
-              <option value="{{ split_name }}">{{ split_name }}</option>
-              {% endfor %}
-            </select>
-          </label>
           <button
             type="submit"
             class="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"

@@ -216,6 +216,31 @@ def test_training_service_requires_imported_dataset(workspace: Path) -> None:
         training_service.create_experiment(project.id)
 
 
+def test_training_service_exposes_form_sections_and_devices(workspace: Path) -> None:
+    paths = WorkspacePaths(root=workspace)
+    store = JsonStore()
+    project_service = ProjectService(paths=paths, store=store)
+    training_service = TrainingService(
+        paths=paths,
+        store=store,
+        project_service=project_service,
+        dataset_service=DatasetService(paths=paths, store=store, project_service=project_service),
+        runner=_FakeRunner(),
+    )
+
+    sections = training_service.get_training_form_sections("classification")
+    section_ids = {section.id for section in sections}
+    assert "setup" in section_ids
+    assert "optimization" in section_ids
+    assert "objective" in section_ids
+    assert "training_settings" in section_ids
+    assert "hardware" in section_ids
+    assert "augmentation" in section_ids
+
+    devices = training_service.list_available_devices()
+    assert any(device["id"] == "cpu" for device in devices)
+
+
 def _build_classification_source(source_root: Path) -> None:
     cats_dir = source_root / "cats"
     dogs_dir = source_root / "dogs"
