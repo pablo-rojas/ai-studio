@@ -201,6 +201,14 @@ class DatasetImportRequest(BaseModel):
     source_path: str = Field(min_length=1)
     source_format: DatasetSourceFormat | None = None
 
+    @field_validator("source_format", mode="before")
+    @classmethod
+    def normalize_source_format(cls, value: object) -> object:
+        """Treat blank source format values as auto-detect."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
     @field_validator("source_path")
     @classmethod
     def validate_source_path(cls, value: str) -> str:

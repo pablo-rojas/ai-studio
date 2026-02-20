@@ -86,6 +86,113 @@ async def test_dataset_import_and_browse_via_api(test_client, workspace: Path) -
     assert missing_payload["error"]["code"] == "NOT_FOUND"
 
 
+@pytest.mark.asyncio
+async def test_hx_dataset_image_listing_supports_filters_and_pagination(
+    test_client,
+    workspace: Path,
+) -> None:
+    project_id = await _create_project(test_client, name="Dataset HTMX Listing")
+    source_root = workspace.parent / "dataset_hx_listing_source"
+    (source_root / "cats").mkdir(parents=True, exist_ok=True)
+    (source_root / "dogs").mkdir(parents=True, exist_ok=True)
+
+    _create_image(source_root / "cats" / "cat_hx_001.png", size=(300, 200), color=(220, 120, 120))
+    _create_image(source_root / "cats" / "cat_hx_002.png", size=(260, 180), color=(220, 90, 90))
+    _create_image(source_root / "dogs" / "dog_hx_001.png", size=(280, 210), color=(120, 120, 220))
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    page_response = await test_client.get(
+        f"/api/datasets/{project_id}/images",
+        params={
+            "page": 1,
+            "page_size": 1,
+            "sort_by": "filename",
+            "sort_order": "asc",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert page_response.status_code == 200
+    assert 'id="dataset-image-list"' in page_response.text
+    assert "Page 1 of 3" in page_response.text
+    assert "cat_hx_001.png" in page_response.text
+
+    filtered_response = await test_client.get(
+        f"/api/datasets/{project_id}/images",
+        params={"filter_class": "cats"},
+        headers={"HX-Request": "true"},
+    )
+    assert filtered_response.status_code == 200
+    assert "cat_hx_001.png" in filtered_response.text
+    assert "cat_hx_002.png" in filtered_response.text
+    assert "dog_hx_001.png" not in filtered_response.text
+
+
+@pytest.mark.asyncio
+async def test_hx_dataset_image_detail_fragment_renders_metadata(
+    test_client,
+    workspace: Path,
+) -> None:
+    project_id = await _create_project(test_client, name="Dataset HTMX Detail")
+    source_root = workspace.parent / "dataset_hx_detail_source"
+    (source_root / "cats").mkdir(parents=True, exist_ok=True)
+    _create_image(
+        source_root / "cats" / "cat_detail_001.png", size=(320, 240), color=(220, 120, 120)
+    )
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    listing_response = await test_client.get(f"/api/datasets/{project_id}/images")
+    assert listing_response.status_code == 200
+    filename = listing_response.json()["data"]["items"][0]["filename"]
+
+    detail_response = await test_client.get(
+        f"/api/datasets/{project_id}/images/{filename}/info",
+        headers={"HX-Request": "true"},
+    )
+    assert detail_response.status_code == 200
+    assert filename in detail_response.text
+    assert "Dimensions" in detail_response.text
+    assert "Class" in detail_response.text
+
+
+@pytest.mark.asyncio
+async def test_hx_local_import_accepts_form_payload(
+    test_client,
+    workspace: Path,
+) -> None:
+    project_id = await _create_project(test_client, name="Dataset HTMX Form Import")
+    source_root = workspace.parent / "dataset_hx_form_source"
+    (source_root / "cats").mkdir(parents=True, exist_ok=True)
+    _create_image(source_root / "cats" / "cat_form_001.png", size=(256, 192), color=(220, 120, 120))
+
+    response = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        data={
+            "source_path": str(source_root),
+            "source_format": "",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert 'id="dataset-summary"' in response.text
+    assert "No dataset imported." not in response.text
+
+
 async def _create_project(test_client, *, name: str) -> str:
     response = await test_client.post(
         "/api/projects",

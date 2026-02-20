@@ -2,13 +2,264 @@
 {% block title %}Dataset{% endblock %}
 
 {% block content %}
-<section class="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-  <h1 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Dataset</h1>
-  <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
-    Dataset page for <span class="font-medium">{{ project.name }}</span>.
-  </p>
-  <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-    Full dataset import and browsing UI is planned for Phase 6.
-  </p>
+<section
+  x-data="{ importOpen: false, importMode: 'local', statsOpen: true, detailOpen: false }"
+  class="space-y-6"
+>
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Dataset</h1>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Import and browse images for <span class="font-medium">{{ project.name }}</span>.
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        @click="statsOpen = !statsOpen"
+        class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        <span x-text="statsOpen ? 'Hide Stats' : 'Show Stats'"></span>
+      </button>
+      <button
+        type="button"
+        @click="importOpen = true"
+        class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+      >
+        Import Dataset
+      </button>
+    </div>
+  </div>
+
+  <div x-show="statsOpen" x-cloak>
+    {% include "fragments/dataset_summary.html" %}
+  </div>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <form
+      id="dataset-controls"
+      hx-get="/api/datasets/{{ project.id }}/images"
+      hx-target="#dataset-image-list"
+      hx-swap="outerHTML"
+      hx-trigger="change from:select, keyup changed delay:350ms from:input[name='search']"
+      class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
+    >
+      <input type="hidden" name="page" value="1">
+
+      <label class="space-y-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Class</span>
+        <select
+          name="filter_class"
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        >
+          <option value="">All Classes</option>
+          {% if dataset %}
+            {% for class_name in dataset.classes %}
+            <option value="{{ class_name }}" {% if query.filter_class == class_name %}selected{% endif %}>
+              {{ class_name }}
+            </option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </label>
+
+      <label class="space-y-1 md:col-span-2 xl:col-span-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Search</span>
+        <input
+          type="search"
+          name="search"
+          value="{{ query.search or '' }}"
+          placeholder="Filename..."
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        >
+      </label>
+
+      <label class="space-y-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Sort By</span>
+        <select
+          name="sort_by"
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        >
+          <option value="filename" {% if query.sort_by == "filename" %}selected{% endif %}>Name</option>
+          <option value="class" {% if query.sort_by == "class" %}selected{% endif %}>Class</option>
+          <option value="size" {% if query.sort_by == "size" %}selected{% endif %}>Image Size</option>
+        </select>
+      </label>
+
+      <label class="space-y-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Order</span>
+        <select
+          name="sort_order"
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        >
+          <option value="asc" {% if query.sort_order == "asc" %}selected{% endif %}>Ascending</option>
+          <option value="desc" {% if query.sort_order == "desc" %}selected{% endif %}>Descending</option>
+        </select>
+      </label>
+
+      <label class="space-y-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Page Size</span>
+        <select
+          name="page_size"
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        >
+          {% for size in [24, 50, 100] %}
+          <option value="{{ size }}" {% if query.page_size == size %}selected{% endif %}>{{ size }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </section>
+
+  {% include "fragments/dataset_image_list.html" %}
+
+  <div
+    x-show="importOpen"
+    x-cloak
+    class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4"
+    @click.self="importOpen = false"
+  >
+    <div class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:shadow-slate-950/40">
+      <div class="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Import Dataset</h2>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Load images from a local folder or ZIP archive.</p>
+        </div>
+        <button
+          type="button"
+          class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          @click="importOpen = false"
+        >
+          Close
+        </button>
+      </div>
+
+      <div class="mb-5 flex items-center gap-2">
+        <button
+          type="button"
+          @click="importMode = 'local'"
+          :class="importMode === 'local' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-300'"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium transition dark:border-slate-700"
+        >
+          Local Path
+        </button>
+        <button
+          type="button"
+          @click="importMode = 'upload'"
+          :class="importMode === 'upload' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-300'"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium transition dark:border-slate-700"
+        >
+          Upload ZIP
+        </button>
+      </div>
+
+      <form
+        x-show="importMode === 'local'"
+        hx-post="/api/datasets/{{ project.id }}/import/local"
+        hx-swap="none"
+        hx-on::after-request="if (event.detail.successful) { importOpen = false; window.location.reload(); }"
+        class="space-y-4"
+      >
+        <label class="block space-y-1">
+          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Source Path</span>
+          <input
+            type="text"
+            name="source_path"
+            required
+            placeholder="/path/to/dataset"
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+        </label>
+        <label class="block space-y-1">
+          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Format</span>
+          <select
+            name="source_format"
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+            <option value="">Auto Detect</option>
+            <option value="image_folders">Image Folders</option>
+            <option value="coco">COCO</option>
+            <option value="csv">CSV</option>
+          </select>
+        </label>
+        <div class="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            @click="importOpen = false"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+          >
+            Import
+          </button>
+        </div>
+      </form>
+
+      <form
+        x-show="importMode === 'upload'"
+        hx-post="/api/datasets/{{ project.id }}/import/upload"
+        hx-encoding="multipart/form-data"
+        hx-swap="none"
+        hx-on::after-request="if (event.detail.successful) { importOpen = false; window.location.reload(); }"
+        class="space-y-4"
+      >
+        <label class="block space-y-1">
+          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">ZIP File</span>
+          <input
+            type="file"
+            name="uploaded_file"
+            accept=".zip,application/zip"
+            required
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+        </label>
+        <label class="block space-y-1">
+          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Format</span>
+          <select
+            name="source_format"
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+            <option value="">Auto Detect</option>
+            <option value="image_folders">Image Folders</option>
+            <option value="coco">COCO</option>
+            <option value="csv">CSV</option>
+          </select>
+        </label>
+        <div class="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            @click="importOpen = false"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+          >
+            Import
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div
+    x-show="detailOpen"
+    x-cloak
+    class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4"
+    @click.self="detailOpen = false"
+  >
+    <div class="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:shadow-slate-950/40">
+      <div id="dataset-image-detail" class="rounded-lg border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
+        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Image Detail</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Select a thumbnail to view metadata.</p>
+      </div>
+    </div>
+  </div>
 </section>
 {% endblock %}

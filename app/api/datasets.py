@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import zipfile
+from json import JSONDecodeError
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeVar
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError as PydanticValidationError
 
 from app.api.dependencies import get_dataset_service
 from app.api.responses import is_hx_request, ok_response
@@ -23,6 +26,7 @@ from app.schemas.dataset import (
 
 router = APIRouter()
 DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
+ModelT = TypeVar("ModelT")
 
 _CHUNK_SIZE_BYTES = 1024 * 1024
 
@@ -36,12 +40,43 @@ def _render_dataset_summary_fragment(request: Request, dataset: dict[str, Any]):
     )
 
 
-def _render_dataset_images_fragment(request: Request, listing: dict[str, Any]):
+def _render_dataset_images_fragment(
+    request: Request,
+    *,
+    project_id: str,
+    listing: dict[str, Any],
+    query: dict[str, Any],
+):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
         request,
         "fragments/dataset_image_list.html",
-        {"listing": listing},
+        {
+            "project_id": project_id,
+            "listing": listing,
+            "query": query,
+        },
+    )
+
+
+def _render_dataset_image_detail_fragment(
+    request: Request,
+    *,
+    project_id: str,
+    image: dict[str, Any],
+    class_name: str | None,
+    split_assignments: list[dict[str, str]],
+):
+    templates: Jinja2Templates = request.app.state.templates
+    return templates.TemplateResponse(
+        request,
+        "fragments/dataset_image_detail.html",
+        {
+            "project_id": project_id,
+            "image": image,
+            "class_name": class_name,
+            "split_assignments": split_assignments,
+        },
     )
 
 
@@ -51,6 +86,46 @@ def _extract_zip_safely(archive: zipfile.ZipFile, destination: Path) -> None:
         if member_path.is_absolute() or ".." in member_path.parts:
             raise ValidationError("Uploaded ZIP contains unsafe file paths.")
     archive.extractall(destination)
+
+
+async def _parse_request_model(request: Request, model_type: type[ModelT]) -> ModelT:
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            raw_payload = await request.json()
+        except JSONDecodeError as exc:
+            raise RequestValidationError(
+                [
+                    {
+                        "type": "json_invalid",
+                        "loc": ("body",),
+                        "msg": "JSON decode error.",
+                        "input": None,
+                    }
+                ]
+            ) from exc
+    else:
+        form = await request.form()
+        raw_payload = dict(form)
+
+    try:
+        return model_type.model_validate(raw_payload)
+    except PydanticValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
+
+def _extract_primary_class_name(annotations: list[dict[str, Any]]) -> str | None:
+    for annotation in annotations:
+        if annotation.get("type") == "label":
+            class_name = annotation.get("class_name")
+            if isinstance(class_name, str) and class_name:
+                return class_name
+
+    for annotation in annotations:
+        if annotation.get("type") == "anomaly":
+            return "anomalous" if bool(annotation.get("is_anomalous")) else "normal"
+
+    return None
 
 
 @router.get("/{project_id}")
@@ -71,10 +146,10 @@ async def get_dataset(
 async def import_dataset_from_local(
     request: Request,
     project_id: str,
-    payload: DatasetImportRequest,
     dataset_service: DatasetServiceDep,
 ) -> dict[str, object]:
     """Import a dataset from a local folder path."""
+    payload = await _parse_request_model(request, DatasetImportRequest)
     dataset = dataset_service.import_dataset(project_id, payload)
     serialized = dataset.model_dump(mode="json")
     if is_hx_request(request):
@@ -163,12 +238,18 @@ async def list_dataset_images(
     listing = dataset_service.list_images(project_id, query)
     payload = listing.model_dump(mode="json")
     if is_hx_request(request):
-        return _render_dataset_images_fragment(request, payload)
+        return _render_dataset_images_fragment(
+            request,
+            project_id=project_id,
+            listing=payload,
+            query=query.model_dump(mode="json"),
+        )
     return ok_response(payload)
 
 
 @router.get("/{project_id}/images/{filename}/info")
 async def get_dataset_image_info(
+    request: Request,
     project_id: str,
     filename: str,
     dataset_service: DatasetServiceDep,
@@ -176,12 +257,22 @@ async def get_dataset_image_info(
     """Return per-image metadata and available split names."""
     image = dataset_service.get_image_info(project_id, filename)
     dataset = dataset_service.get_dataset(project_id)
-    return ok_response(
-        {
-            "image": image.model_dump(mode="json"),
-            "split_names": dataset.split_names,
-        }
-    )
+    image_payload = image.model_dump(mode="json")
+    split_assignments: list[dict[str, str]] = []
+    for index, split_name in enumerate(dataset.split_names):
+        if index < len(image.split):
+            split_assignments.append({"name": split_name, "value": image.split[index]})
+
+    if is_hx_request(request):
+        return _render_dataset_image_detail_fragment(
+            request,
+            project_id=project_id,
+            image=image_payload,
+            class_name=_extract_primary_class_name(image_payload["annotations"]),
+            split_assignments=split_assignments,
+        )
+
+    return ok_response({"image": image_payload, "split_names": dataset.split_names})
 
 
 @router.get("/{project_id}/images/{filename}")

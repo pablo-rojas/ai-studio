@@ -1,16 +1,117 @@
 <div id="dataset-image-list">
-  <p>
-    Page {{ listing.page }} / {{ listing.total_pages }} - {{ listing.total_items }} total images
-  </p>
-  {% if listing.items %}
-  <ul>
-    {% for image in listing.items %}
-    <li data-filename="{{ image.filename }}">
-      {{ image.filename }} ({{ image.width }}x{{ image.height }})
-    </li>
-    {% endfor %}
-  </ul>
+  {% set dataset_project_id = project_id if project_id is defined else project.id %}
+  {% if listing %}
+    {% if listing["total_items"] > 0 %}
+      {% set start_index = ((listing["page"] - 1) * listing["page_size"]) + 1 %}
+      {% set end_index = start_index + (listing["items"] | length) - 1 %}
+    {% else %}
+      {% set start_index = 0 %}
+      {% set end_index = 0 %}
+    {% endif %}
+
+  <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <p class="text-sm text-slate-600 dark:text-slate-300">
+        Showing {{ start_index }}–{{ end_index }} of {{ listing["total_items"] }} images
+      </p>
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        Page {{ listing["page"] }} of {{ listing["total_pages"] if listing["total_pages"] else 1 }}
+      </p>
+    </div>
+
+    {% if listing["items"] %}
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      {% for image in listing["items"] %}
+      <button
+        type="button"
+        @click="detailOpen = true"
+        hx-get="/api/datasets/{{ dataset_project_id }}/images/{{ image.filename }}/info"
+        hx-target="#dataset-image-detail"
+        hx-swap="innerHTML"
+        class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left transition hover:border-blue-400 hover:shadow-sm dark:border-slate-700 dark:bg-slate-950/60"
+      >
+        <div class="aspect-square overflow-hidden bg-slate-100 dark:bg-slate-900">
+          <img
+            src="/api/datasets/{{ dataset_project_id }}/thumbnails/{{ image.filename }}"
+            alt="{{ image.filename }}"
+            loading="lazy"
+            class="h-full w-full object-cover"
+          >
+        </div>
+        <div class="space-y-1 p-2">
+          <p class="truncate text-xs font-medium text-slate-900 dark:text-slate-100">{{ image.filename }}</p>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">{{ image.width }}×{{ image.height }}</p>
+          {% if image.class_name %}
+          <span class="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-800 dark:bg-blue-500/20 dark:text-blue-200">
+            {{ image.class_name }}
+          </span>
+          {% endif %}
+        </div>
+      </button>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
+      <p class="text-sm font-medium text-slate-700 dark:text-slate-300">No images match current filters.</p>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Try adjusting class, search, or sort options.</p>
+    </div>
+    {% endif %}
+
+    {% set prev_page = listing["page"] - 1 %}
+    {% set next_page = listing["page"] + 1 %}
+    {% set has_prev = listing["page"] > 1 %}
+    {% set has_next = listing["total_pages"] > 0 and listing["page"] < listing["total_pages"] %}
+
+    <div class="mt-4 flex items-center justify-end gap-2">
+      <button
+        type="button"
+        hx-get="/api/datasets/{{ dataset_project_id }}/images"
+        hx-vals='{{ {
+          "page": prev_page,
+          "page_size": query.page_size,
+          "sort_by": query.sort_by,
+          "sort_order": query.sort_order,
+          "filter_class": query.filter_class or "",
+          "search": query.search or "",
+        } | tojson }}'
+        hx-target="#dataset-image-list"
+        hx-swap="outerHTML"
+        {% if not has_prev %}disabled{% endif %}
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:enabled:hover:bg-slate-800"
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        hx-get="/api/datasets/{{ dataset_project_id }}/images"
+        hx-vals='{{ {
+          "page": next_page,
+          "page_size": query.page_size,
+          "sort_by": query.sort_by,
+          "sort_order": query.sort_order,
+          "filter_class": query.filter_class or "",
+          "search": query.search or "",
+        } | tojson }}'
+        hx-target="#dataset-image-list"
+        hx-swap="outerHTML"
+        {% if not has_next %}disabled{% endif %}
+        class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition enabled:hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:enabled:hover:bg-slate-800"
+      >
+        Next
+      </button>
+    </div>
+  </div>
   {% else %}
-  <p>No images match the current filters.</p>
+  <div class="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900">
+    <p class="text-lg font-medium text-slate-900 dark:text-slate-100">No dataset imported</p>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Import images to start browsing a paginated grid.</p>
+    <button
+      type="button"
+      @click="importOpen = true"
+      class="mt-5 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+    >
+      Import Dataset
+    </button>
+  </div>
   {% endif %}
 </div>
