@@ -6,7 +6,9 @@
   x-data="splitPageState({
     previewUrl: '/api/splits/{{ project.id }}/preview',
     hasDataset: {{ "true" if dataset else "false" }},
+    existingSplitNames: {{ (dataset.split_names if dataset else []) | tojson }},
   })"
+  x-on:split-created.window="handleCreateSuccess($event.detail && $event.detail.name ? $event.detail.name : splitName)"
   class="space-y-6"
 >
   <div class="flex flex-wrap items-start justify-between gap-4">
@@ -81,7 +83,7 @@
         hx-post="/api/splits/{{ project.id }}"
         hx-target="#split-list"
         hx-swap="outerHTML"
-        hx-on::after-request="if (event.detail.successful) { handleCreateSuccess(); }"
+        hx-disabled-elt="button, input, select"
         class="grid grid-cols-1 gap-6 lg:grid-cols-2"
       >
         <div class="space-y-4">
@@ -209,6 +211,9 @@
       createOpen: false,
       hasDataset: Boolean(config.hasDataset),
       previewUrl: config.previewUrl,
+      existingSplitNames: Array.isArray(config.existingSplitNames)
+        ? [...config.existingSplitNames]
+        : [],
       splitName: "80-10-10",
       seed: 42,
       ratios: { train: 80, val: 10, test: 10 },
@@ -233,7 +238,19 @@
       resetForm() {
         this.ratios = { train: 80, val: 10, test: 10 };
         this.seed = 42;
-        this.splitName = "80-10-10";
+        this.splitName = this.nextAvailableSplitName("80-10-10");
+      },
+
+      nextAvailableSplitName(baseName) {
+        if (!this.existingSplitNames.includes(baseName)) {
+          return baseName;
+        }
+
+        let index = 2;
+        while (this.existingSplitNames.includes(`${baseName}-${index}`)) {
+          index += 1;
+        }
+        return `${baseName}-${index}`;
       },
 
       ratioDecimal(key) {
@@ -285,7 +302,10 @@
         });
       },
 
-      handleCreateSuccess() {
+      handleCreateSuccess(createdName = this.splitName) {
+        if (createdName && !this.existingSplitNames.includes(createdName)) {
+          this.existingSplitNames.push(createdName);
+        }
         this.createOpen = false;
       },
     };

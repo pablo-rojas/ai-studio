@@ -54,7 +54,6 @@
         hx-post="/api/projects"
         hx-target="#project-grid"
         hx-swap="outerHTML"
-        hx-on::after-request="if (event.detail.successful) { modalOpen = false; $el.reset(); selectedTask = '{{ enabled_task }}'; }"
         class="space-y-5"
       >
         <input type="hidden" name="task" :value="selectedTask">

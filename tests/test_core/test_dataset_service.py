@@ -7,8 +7,10 @@ from PIL import Image
 
 from app.core.dataset_service import DatasetService
 from app.core.project_service import ProjectService
-from app.schemas.dataset import DatasetImportRequest, DatasetMetadata
+from app.core.split_service import SplitService
+from app.schemas.dataset import DatasetImageListQuery, DatasetImportRequest, DatasetMetadata
 from app.schemas.project import ProjectCreate
+from app.schemas.split import SplitCreateRequest, SplitRatios
 from app.storage.json_store import JsonStore
 from app.storage.paths import WorkspacePaths
 
@@ -138,6 +140,56 @@ def test_import_coco_classification_dataset(
     assert metadata.classes == ["cat", "dog"]
     assert metadata.image_stats.num_images == 2
     assert metadata.images[0].annotations[0].type == "label"
+
+
+def test_list_images_defaults_to_first_split_when_available(
+    project_service: ProjectService,
+    workspace: Path,
+) -> None:
+    project = project_service.create_project(
+        ProjectCreate(name="Dataset Split Selection Project", task="classification")
+    )
+    source_root = workspace.parent / "dataset_split_selection_core_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    service = DatasetService(paths=WorkspacePaths(root=workspace), store=JsonStore())
+    service.import_dataset(
+        project.id,
+        DatasetImportRequest(source_path=str(source_root), source_format="image_folders"),
+    )
+
+    split_service = SplitService(paths=WorkspacePaths(root=workspace), store=JsonStore())
+    split_service.create_split(
+        project.id,
+        SplitCreateRequest(
+            name="80-10-10",
+            ratios=SplitRatios(train=0.8, val=0.1, test=0.1),
+            seed=42,
+        ),
+    )
+
+    listing = service.list_images(project.id, query=DatasetImageListQuery())
+    assert listing.selected_split_name == "80-10-10"
+    assert listing.items
+    assert {item.selected_split_value for item in listing.items} <= {"train", "val", "test", "none"}
+
+    none_listing = service.list_images(project.id, query=DatasetImageListQuery(split_name=""))
+    assert none_listing.selected_split_name == ""
+    assert all(item.selected_split_value is None for item in none_listing.items)
+
+
+def _build_classification_source(source_root: Path, *, cats: int, dogs: int) -> None:
+    (source_root / "cats").mkdir(parents=True, exist_ok=True)
+    (source_root / "dogs").mkdir(parents=True, exist_ok=True)
+
+    for index in range(cats):
+        _create_image(
+            source_root / "cats" / f"cat_{index:03d}.png", size=(200, 150), color=(220, 90, 90)
+        )
+    for index in range(dogs):
+        _create_image(
+            source_root / "dogs" / f"dog_{index:03d}.png", size=(200, 150), color=(90, 90, 220)
+        )
 
 
 def _create_image(path: Path, *, size: tuple[int, int], color: tuple[int, int, int]) -> None:

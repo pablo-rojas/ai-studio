@@ -3,7 +3,7 @@
 
 {% block content %}
 <section
-  x-data="{ importOpen: false, importMode: 'local', statsOpen: false, detailOpen: false }"
+  x-data="{ importOpen: false, importMode: 'local', importBusy: false, statsOpen: false, detailOpen: false }"
   class="space-y-6"
 >
   <div class="flex flex-wrap items-start justify-between gap-4">
@@ -42,7 +42,7 @@
       hx-target="#dataset-image-list"
       hx-swap="outerHTML"
       hx-trigger="change from:select, keyup changed delay:350ms from:input[name='search']"
-      class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
+      class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6"
     >
       <input type="hidden" name="page" value="1">
 
@@ -57,6 +57,23 @@
             {% for class_name in dataset.classes %}
             <option value="{{ class_name }}" {% if query.filter_class == class_name %}selected{% endif %}>
               {{ class_name }}
+            </option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </label>
+
+      <label class="space-y-1">
+        <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Split</span>
+        <select
+          name="split_name"
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+        >
+          <option value="" {% if query.split_name == "" %}selected{% endif %}>None</option>
+          {% if dataset %}
+            {% for split_name in dataset.split_names %}
+            <option value="{{ split_name }}" {% if query.split_name == split_name %}selected{% endif %}>
+              {{ split_name }}
             </option>
             {% endfor %}
           {% endif %}
@@ -117,7 +134,7 @@
     x-show="importOpen"
     x-cloak
     class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4"
-    @click.self="importOpen = false"
+    @click.self="if (!importBusy) { importOpen = false; }"
   >
     <div class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:shadow-slate-950/40">
       <div class="mb-4 flex items-start justify-between gap-4">
@@ -127,8 +144,9 @@
         </div>
         <button
           type="button"
-          class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          @click="importOpen = false"
+          :disabled="importBusy"
+          class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          @click="if (!importBusy) { importOpen = false; }"
         >
           Close
         </button>
@@ -138,112 +156,134 @@
         <button
           type="button"
           @click="importMode = 'local'"
+          :disabled="importBusy"
           :class="importMode === 'local' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-300'"
-          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium transition dark:border-slate-700"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700"
         >
           Local Path
         </button>
         <button
           type="button"
           @click="importMode = 'upload'"
+          :disabled="importBusy"
           :class="importMode === 'upload' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-300'"
-          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium transition dark:border-slate-700"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700"
         >
           Upload ZIP
         </button>
       </div>
 
+      <div
+        id="dataset-import-indicator"
+        aria-live="polite"
+        class="htmx-indicator mb-4 items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
+      >
+        <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" class="opacity-25"></circle>
+          <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+        </svg>
+        <span>Importing dataset...</span>
+      </div>
+
       <form
         x-show="importMode === 'local'"
         hx-post="/api/datasets/{{ project.id }}/import/local"
+        hx-indicator="#dataset-import-indicator"
         hx-swap="none"
-        hx-on::after-request="if (event.detail.successful) { importOpen = false; window.location.reload(); }"
+        hx-on::before-request="importBusy = true"
+        hx-on::after-request="importBusy = false; if (event.detail.successful) { importOpen = false; window.location.reload(); }"
         class="space-y-4"
       >
-        <label class="block space-y-1">
-          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Source Path</span>
-          <input
-            type="text"
-            name="source_path"
-            required
-            placeholder="/path/to/dataset"
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          >
-        </label>
-        <label class="block space-y-1">
-          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Format</span>
-          <select
-            name="source_format"
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          >
-            <option value="">Auto Detect</option>
-            <option value="image_folders">Image Folders</option>
-            <option value="coco">COCO</option>
-            <option value="csv">CSV</option>
-          </select>
-        </label>
-        <div class="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            @click="importOpen = false"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
-          >
-            Import
-          </button>
-        </div>
+        <fieldset :disabled="importBusy" class="space-y-4">
+          <label class="block space-y-1">
+            <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Source Path</span>
+            <input
+              type="text"
+              name="source_path"
+              required
+              placeholder="/path/to/dataset"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+          <label class="block space-y-1">
+            <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Format</span>
+            <select
+              name="source_format"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              <option value="">Auto Detect</option>
+              <option value="image_folders">Image Folders</option>
+              <option value="coco">COCO</option>
+              <option value="csv">CSV</option>
+            </select>
+          </label>
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              @click="if (!importBusy) { importOpen = false; }"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              Import
+            </button>
+          </div>
+        </fieldset>
       </form>
 
       <form
         x-show="importMode === 'upload'"
         hx-post="/api/datasets/{{ project.id }}/import/upload"
         hx-encoding="multipart/form-data"
+        hx-indicator="#dataset-import-indicator"
         hx-swap="none"
-        hx-on::after-request="if (event.detail.successful) { importOpen = false; window.location.reload(); }"
+        hx-on::before-request="importBusy = true"
+        hx-on::after-request="importBusy = false; if (event.detail.successful) { importOpen = false; window.location.reload(); }"
         class="space-y-4"
       >
-        <label class="block space-y-1">
-          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">ZIP File</span>
-          <input
-            type="file"
-            name="uploaded_file"
-            accept=".zip,application/zip"
-            required
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          >
-        </label>
-        <label class="block space-y-1">
-          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Format</span>
-          <select
-            name="source_format"
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          >
-            <option value="">Auto Detect</option>
-            <option value="image_folders">Image Folders</option>
-            <option value="coco">COCO</option>
-            <option value="csv">CSV</option>
-          </select>
-        </label>
-        <div class="flex justify-end gap-2 pt-1">
-          <button
-            type="button"
-            class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            @click="importOpen = false"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
-          >
-            Import
-          </button>
-        </div>
+        <fieldset :disabled="importBusy" class="space-y-4">
+          <label class="block space-y-1">
+            <span class="text-sm font-medium text-slate-900 dark:text-slate-100">ZIP File</span>
+            <input
+              type="file"
+              name="uploaded_file"
+              accept=".zip,application/zip"
+              required
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+          <label class="block space-y-1">
+            <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Format</span>
+            <select
+              name="source_format"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              <option value="">Auto Detect</option>
+              <option value="image_folders">Image Folders</option>
+              <option value="coco">COCO</option>
+              <option value="csv">CSV</option>
+            </select>
+          </label>
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              @click="if (!importBusy) { importOpen = false; }"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              Import
+            </button>
+          </div>
+        </fieldset>
       </form>
     </div>
   </div>

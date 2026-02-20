@@ -78,7 +78,9 @@ async def create_project(
     payload = await _parse_request_model(request, ProjectCreate)
     project = project_service.create_project(payload)
     if is_hx_request(request):
-        return _render_project_list_fragment(request, project_service)
+        response = _render_project_list_fragment(request, project_service)
+        response.headers["HX-Redirect"] = f"/projects/{project.id}/dataset"
+        return response
     return ok_response(project.model_dump(mode="json"))
 
 

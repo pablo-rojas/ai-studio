@@ -135,6 +135,14 @@ class DatasetService:
         dataset = self.get_dataset(project_id)
         filter_class = query.filter_class.lower() if query.filter_class else None
         search_query = query.search.lower() if query.search else None
+        selected_split_name = self._resolve_selected_split_name(
+            requested_split_name=query.split_name,
+            available_split_names=dataset.split_names,
+        )
+        selected_split_index = self._resolve_split_index(
+            split_name=selected_split_name,
+            split_names=dataset.split_names,
+        )
 
         items: list[DatasetImageListItem] = []
         for image in dataset.images:
@@ -148,6 +156,10 @@ class DatasetService:
             if search_query is not None and search_query not in image.filename.lower():
                 continue
 
+            selected_split_value = None
+            if selected_split_index is not None and selected_split_index < len(image.split):
+                selected_split_value = image.split[selected_split_index]
+
             items.append(
                 DatasetImageListItem(
                     filename=image.filename,
@@ -155,6 +167,7 @@ class DatasetService:
                     height=image.height,
                     class_name=class_name,
                     split=image.split,
+                    selected_split_value=selected_split_value,
                     annotation_count=len(image.annotations),
                 )
             )
@@ -183,6 +196,7 @@ class DatasetService:
             page_size=query.page_size,
             total_items=total_items,
             total_pages=total_pages,
+            selected_split_name=selected_split_name,
             items=items[start:end],
         )
 
@@ -404,3 +418,25 @@ class DatasetService:
             if getattr(annotation, "type", None) == "label":
                 return annotation.class_name
         return None
+
+    def _resolve_selected_split_name(
+        self,
+        *,
+        requested_split_name: str | None,
+        available_split_names: list[str],
+    ) -> str:
+        if requested_split_name is None:
+            return available_split_names[0] if available_split_names else ""
+        if requested_split_name == "":
+            return ""
+        if requested_split_name in available_split_names:
+            return requested_split_name
+        return available_split_names[0] if available_split_names else ""
+
+    def _resolve_split_index(self, *, split_name: str, split_names: list[str]) -> int | None:
+        if not split_name:
+            return None
+        try:
+            return split_names.index(split_name)
+        except ValueError:
+            return None

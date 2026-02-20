@@ -228,12 +228,24 @@ class DatasetImageListQuery(BaseModel):
     sort_order: SortOrder = "asc"
     filter_class: str | None = None
     search: str | None = None
+    split_name: str | None = None
 
     @field_validator("filter_class", "search")
     @classmethod
     def normalize_query_text(cls, value: str | None) -> str | None:
         """Normalize optional text query parameters."""
         return _normalize_optional_query_text(value)
+
+    @field_validator("split_name")
+    @classmethod
+    def normalize_split_name(cls, value: str | None) -> str | None:
+        """Normalize split selector input while preserving explicit none selections."""
+        if value is None:
+            return None
+        normalized = " ".join(value.strip().split())
+        if not normalized:
+            return ""
+        return normalized
 
 
 class DatasetImageListItem(BaseModel):
@@ -244,6 +256,7 @@ class DatasetImageListItem(BaseModel):
     height: int = Field(ge=1)
     class_name: str | None = None
     split: list[SplitValue] = Field(default_factory=list)
+    selected_split_value: SplitValue | None = None
     annotation_count: int = Field(default=0, ge=0)
 
     @field_validator("filename")
@@ -268,4 +281,5 @@ class DatasetImageListResponse(BaseModel):
     page_size: int = Field(ge=1)
     total_items: int = Field(ge=0)
     total_pages: int = Field(ge=0)
+    selected_split_name: str = ""
     items: list[DatasetImageListItem] = Field(default_factory=list)

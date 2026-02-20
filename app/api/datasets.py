@@ -252,6 +252,7 @@ async def list_dataset_images(
     sort_order: Annotated[SortOrder, Query()] = "asc",
     filter_class: Annotated[str | None, Query()] = None,
     search: Annotated[str | None, Query()] = None,
+    split_name: Annotated[str | None, Query()] = None,
 ) -> dict[str, object]:
     """List dataset images with paging, sorting, and filtering."""
     query = DatasetImageListQuery(
@@ -261,17 +262,20 @@ async def list_dataset_images(
         sort_order=sort_order,
         filter_class=filter_class,
         search=search,
+        split_name=split_name,
     )
     listing = dataset_service.list_images(project_id, query)
     payload = listing.model_dump(mode="json")
     dataset = dataset_service.get_dataset(project_id)
     class_badge_map = build_class_badge_map(dataset.classes)
+    query_payload = query.model_dump(mode="json")
+    query_payload["split_name"] = payload["selected_split_name"]
     if is_hx_request(request):
         return _render_dataset_images_fragment(
             request,
             project_id=project_id,
             listing=payload,
-            query=query.model_dump(mode="json"),
+            query=query_payload,
             class_badge_map=class_badge_map,
         )
     return ok_response(payload)

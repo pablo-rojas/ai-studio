@@ -147,6 +147,68 @@ async def test_hx_dataset_image_listing_supports_filters_and_pagination(
 
 
 @pytest.mark.asyncio
+async def test_dataset_images_default_to_first_split_and_allow_none_selection(
+    test_client,
+    workspace: Path,
+) -> None:
+    project_id = await _create_project(test_client, name="Dataset Split Selection API")
+    source_root = workspace.parent / "dataset_split_selection_source"
+    (source_root / "cats").mkdir(parents=True, exist_ok=True)
+    (source_root / "dogs").mkdir(parents=True, exist_ok=True)
+
+    for index in range(20):
+        _create_image(
+            source_root / "cats" / f"cat_split_{index:03d}.png",
+            size=(256, 192),
+            color=(220, 120, 120),
+        )
+        _create_image(
+            source_root / "dogs" / f"dog_split_{index:03d}.png",
+            size=(256, 192),
+            color=(120, 120, 220),
+        )
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    default_response = await test_client.get(f"/api/datasets/{project_id}/images")
+    assert default_response.status_code == 200
+    default_payload = default_response.json()["data"]
+    assert default_payload["selected_split_name"] == "80-10-10"
+    assert default_payload["items"]
+    assert {
+        item["selected_split_value"]
+        for item in default_payload["items"]
+        if item["selected_split_value"] is not None
+    } <= {"train", "val", "test", "none"}
+
+    none_response = await test_client.get(
+        f"/api/datasets/{project_id}/images",
+        params={"split_name": ""},
+    )
+    assert none_response.status_code == 200
+    none_payload = none_response.json()["data"]
+    assert none_payload["selected_split_name"] == ""
+    assert all(item["selected_split_value"] is None for item in none_payload["items"])
+
+
+@pytest.mark.asyncio
 async def test_hx_dataset_image_detail_fragment_renders_metadata(
     test_client,
     workspace: Path,

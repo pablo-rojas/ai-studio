@@ -180,7 +180,9 @@ async def create_split(
     if is_hx_request(request):
         refreshed = split_service.list_splits(project_id)
         serialized = [item.model_dump(mode="json") for item in refreshed]
-        return _render_split_list_fragment(request, project_id=project_id, splits=serialized)
+        response = _render_split_list_fragment(request, project_id=project_id, splits=serialized)
+        response.headers["HX-Trigger"] = json.dumps({"split-created": {"name": split.name}})
+        return response
     return ok_response(split.model_dump(mode="json"))
 
 

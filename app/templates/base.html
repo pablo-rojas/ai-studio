@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Studio - {% block title %}{% endblock %}</title>
   <script>
-    window.tailwind = window.tailwind || {};
-    window.tailwind.config = { darkMode: "class" };
-
     (() => {
       const storageKey = "ai-studio-theme";
       let theme = "light";
@@ -33,6 +30,9 @@
     })();
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: "class" };
+  </script>
   <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
   <script src="{{ url_for('static', path='js/htmx.min.js') }}"></script>
   <script src="{{ url_for('static', path='js/alpine.min.js') }}" defer></script>

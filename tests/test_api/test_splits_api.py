@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -108,6 +109,8 @@ async def test_split_create_accepts_hx_form_payload(
     assert "70-20-10" in create_response.text
     assert "Immutable" in create_response.text
     assert f"/api/splits/{project_id}/70-20-10" in create_response.text
+    trigger_payload = json.loads(create_response.headers["HX-Trigger"])
+    assert trigger_payload["split-created"]["name"] == "70-20-10"
 
     list_response = await test_client.get(f"/api/splits/{project_id}")
     assert list_response.status_code == 200

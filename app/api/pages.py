@@ -55,10 +55,11 @@ async def dataset_page(
     """Render the dataset browsing page for an existing project."""
     templates: Jinja2Templates = request.app.state.templates
     project = project_service.get_project(project_id)
-    query = DatasetImageListQuery()
+    query = DatasetImageListQuery(split_name=request.query_params.get("split_name"))
 
     dataset: dict[str, object] | None = None
     listing: dict[str, object] | None = None
+    query_payload = query.model_dump(mode="json")
 
     try:
         dataset_model = dataset_service.get_dataset(project_id)
@@ -71,6 +72,9 @@ async def dataset_page(
         dataset = dataset_model.model_dump(mode="json")
     if listing_model is not None:
         listing = listing_model.model_dump(mode="json")
+        query_payload["split_name"] = listing_model.selected_split_name
+    else:
+        query_payload["split_name"] = ""
     class_badge_map = build_class_badge_map(dataset_model.classes if dataset_model else [])
 
     return templates.TemplateResponse(
@@ -81,7 +85,7 @@ async def dataset_page(
             "project_id": project_id,
             "dataset": dataset,
             "listing": listing,
-            "query": query.model_dump(mode="json"),
+            "query": query_payload,
             "class_badge_map": class_badge_map,
             "active_page": "dataset",
         },

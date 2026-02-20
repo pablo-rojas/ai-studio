@@ -43,6 +43,10 @@ async def test_dataset_page_shows_empty_state_for_selected_project(test_client) 
     assert response.status_code == 200
     assert "No dataset imported." in response.text
     assert "Import Dataset" in response.text
+    assert 'id="dataset-import-indicator"' in response.text
+    assert "Importing dataset..." in response.text
+    assert response.text.count('hx-indicator="#dataset-import-indicator"') == 2
+    assert "importBusy" in response.text
 
 
 @pytest.mark.asyncio
@@ -82,9 +86,57 @@ async def test_dataset_page_renders_initial_image_grid_after_import(
     assert "object-contain" in response.text
     assert 'id="dataset-page-input-top"' in response.text
     assert 'id="dataset-page-input-bottom"' in response.text
+    assert 'name="split_name"' in response.text
+    assert '<option value="" selected>None</option>' in response.text
     assert f"/api/datasets/{project_id}/thumbnails/cat_page_001.png" in response.text
     assert f"/api/datasets/{project_id}/images" in response.text
     assert "/api/datasets//thumbnails/" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_dataset_page_defaults_to_first_split_for_split_labels(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Dataset Split Label Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "dataset_split_label_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    response = await test_client.get(f"/projects/{project_id}/dataset")
+
+    assert response.status_code == 200
+    assert 'name="split_name"' in response.text
+    assert '<option value="80-10-10" selected>' in response.text
+    assert (
+        "bg-emerald-50 text-emerald-700" in response.text
+        or "bg-amber-50 text-amber-700" in response.text
+        or "bg-sky-50 text-sky-700" in response.text
+        or "bg-slate-100 text-slate-600" in response.text
+    )
 
 
 @pytest.mark.asyncio
@@ -96,9 +148,9 @@ async def test_hx_project_create_rename_delete_flow(test_client) -> None:
     )
     assert create_response.status_code == 200
     assert "HTMX Project" in create_response.text
-
     listed = await test_client.get("/api/projects")
     project_id = listed.json()["data"]["projects"][0]["id"]
+    assert create_response.headers.get("HX-Redirect") == f"/projects/{project_id}/dataset"
 
     rename_response = await test_client.patch(
         f"/api/projects/{project_id}",
@@ -181,6 +233,7 @@ async def test_split_page_renders_split_form_and_summary_after_creation(
     assert 'id="split-ratio-test"' in response.text
     assert 'id="split-seed-input"' in response.text
     assert f"/api/splits/{project_id}/preview" in response.text
+    assert 'x-on:split-created.window="handleCreateSuccess(' in response.text
     assert f"/projects/{project_id}/dataset?split_name=80-10-10" in response.text
 
 
