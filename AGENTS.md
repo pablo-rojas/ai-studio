@@ -1,7 +1,5 @@
 # AGENTS.md — AI Studio
 
-> **⚠️ DRAFT — Rename this file from `_DRAFT_AGENTS.md` to `AGENTS.md` when you are ready to start the project.**
-
 ---
 
 ## Project Overview
