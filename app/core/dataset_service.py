@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import shutil
 import uuid
 from datetime import datetime, timezone
@@ -20,6 +21,9 @@ from app.datasets.formats import (
 )
 from app.schemas.dataset import (
     DatasetImage,
+    DatasetImageListItem,
+    DatasetImageListQuery,
+    DatasetImageListResponse,
     DatasetImportRequest,
     DatasetMetadata,
     DatasetSourceFormat,
@@ -121,6 +125,93 @@ class DatasetService:
         """Delete and recreate the dataset folder for a project."""
         self.project_service.get_project(project_id)
         self._reset_dataset_layout(project_id)
+
+    def list_images(
+        self,
+        project_id: str,
+        query: DatasetImageListQuery,
+    ) -> DatasetImageListResponse:
+        """List dataset images using pagination, filters, and sorting."""
+        dataset = self.get_dataset(project_id)
+        filter_class = query.filter_class.lower() if query.filter_class else None
+        search_query = query.search.lower() if query.search else None
+
+        items: list[DatasetImageListItem] = []
+        for image in dataset.images:
+            class_name = self._extract_primary_class_name(
+                task=dataset.task,
+                annotations=image.annotations,
+            )
+            if filter_class is not None:
+                if class_name is None or class_name.lower() != filter_class:
+                    continue
+            if search_query is not None and search_query not in image.filename.lower():
+                continue
+
+            items.append(
+                DatasetImageListItem(
+                    filename=image.filename,
+                    width=image.width,
+                    height=image.height,
+                    class_name=class_name,
+                    split=image.split,
+                    annotation_count=len(image.annotations),
+                )
+            )
+
+        reverse = query.sort_order == "desc"
+        if query.sort_by == "class":
+            items.sort(
+                key=lambda item: ((item.class_name or "").lower(), item.filename.lower()),
+                reverse=reverse,
+            )
+        elif query.sort_by == "size":
+            items.sort(
+                key=lambda item: (item.width * item.height, item.filename.lower()),
+                reverse=reverse,
+            )
+        else:
+            items.sort(key=lambda item: item.filename.lower(), reverse=reverse)
+
+        total_items = len(items)
+        total_pages = math.ceil(total_items / query.page_size) if total_items else 0
+        start = (query.page - 1) * query.page_size
+        end = start + query.page_size
+
+        return DatasetImageListResponse(
+            page=query.page,
+            page_size=query.page_size,
+            total_items=total_items,
+            total_pages=total_pages,
+            items=items[start:end],
+        )
+
+    def get_image_info(self, project_id: str, filename: str) -> DatasetImage:
+        """Return metadata for a single dataset image."""
+        safe_filename = self._validate_image_filename(filename)
+        dataset = self.get_dataset(project_id)
+        for image in dataset.images:
+            if image.filename == safe_filename:
+                return image
+        raise NotFoundError(f"Image '{safe_filename}' not found for project {project_id}.")
+
+    def get_image_path(self, project_id: str, filename: str) -> Path:
+        """Resolve and validate the path to a dataset image file."""
+        safe_filename = self._validate_image_filename(filename)
+        self.get_image_info(project_id, safe_filename)
+        image_path = self.paths.dataset_images_dir(project_id) / safe_filename
+        if not image_path.exists():
+            raise NotFoundError(f"Image file '{safe_filename}' is missing on disk.")
+        return image_path
+
+    def get_thumbnail_path(self, project_id: str, filename: str) -> Path:
+        """Resolve thumbnail path and generate it if missing."""
+        safe_filename = self._validate_image_filename(filename)
+        image_path = self.get_image_path(project_id, safe_filename)
+        thumbnail_path = self.paths.dataset_thumbnails_dir(project_id) / safe_filename
+        if not thumbnail_path.exists():
+            self._generate_thumbnail(image_path, thumbnail_path)
+        return thumbnail_path
 
     def _parse_dataset(
         self,
@@ -288,3 +379,28 @@ class DatasetService:
                 thumbnail = thumbnail.convert("RGB")
                 save_options["quality"] = 90
             thumbnail.save(target_path, **save_options)
+
+    def _validate_image_filename(self, filename: str) -> str:
+        normalized = filename.strip()
+        if not normalized:
+            raise ValidationError("Filename cannot be empty.")
+        if Path(normalized).name != normalized:
+            raise ValidationError("Filename must not contain path separators.")
+        return normalized
+
+    def _extract_primary_class_name(
+        self,
+        *,
+        task: str,
+        annotations: list[Any],
+    ) -> str | None:
+        if task == "anomaly_detection":
+            for annotation in annotations:
+                if getattr(annotation, "type", None) == "anomaly":
+                    return "anomalous" if annotation.is_anomalous else "normal"
+            return None
+
+        for annotation in annotations:
+            if getattr(annotation, "type", None) == "label":
+                return annotation.class_name
+        return None

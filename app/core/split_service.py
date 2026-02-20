@@ -6,7 +6,13 @@ from typing import Any
 from pydantic import ValidationError as PydanticValidationError
 
 from app.core.dataset_service import DatasetService
-from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.core.exceptions import (
+    ConflictError,
+    DatasetNotImportedError,
+    NotFoundError,
+    SplitNotFoundError,
+    ValidationError,
+)
 from app.core.project_service import ProjectService
 from app.datasets.splits import SplitComputation, compute_split_assignments
 from app.schemas.dataset import DatasetMetadata
@@ -53,7 +59,7 @@ class SplitService:
         payload: SplitPreviewRequest,
     ) -> SplitPreviewResponse:
         """Compute split statistics without persisting assignments."""
-        dataset = self.dataset_service.get_dataset(project_id)
+        dataset = self._get_required_dataset(project_id)
         computation = self._compute_split(
             dataset=dataset,
             seed=payload.seed,
@@ -74,7 +80,7 @@ class SplitService:
     ) -> SplitSummary:
         """Persist a new immutable split by appending it to dataset metadata."""
         self.project_service.get_project(project_id)
-        self.dataset_service.get_dataset(project_id)
+        self._get_required_dataset(project_id)
 
         split_name = payload.name
         split_index: int | None = None
@@ -122,7 +128,7 @@ class SplitService:
 
     def list_splits(self, project_id: str) -> list[SplitSummary]:
         """List all saved splits with derived per-subset statistics."""
-        dataset = self.dataset_service.get_dataset(project_id)
+        dataset = self._get_required_dataset(project_id)
         labels = self._extract_labels(dataset)
         summaries: list[SplitSummary] = []
         for index, split_name in enumerate(dataset.split_names):
@@ -158,19 +164,19 @@ class SplitService:
         for summary in self.list_splits(project_id):
             if summary.name == split_name:
                 return summary
-        raise NotFoundError(f"Split '{split_name}' was not found.")
+        raise SplitNotFoundError(f"Split '{split_name}' was not found.")
 
     def delete_split(self, project_id: str, split_name: str) -> None:
         """Delete a saved split from dataset metadata."""
         self.project_service.get_project(project_id)
-        self.dataset_service.get_dataset(project_id)
+        self._get_required_dataset(project_id)
 
         def update_dataset(raw_payload: Any) -> dict[str, Any]:
             dataset = self._validate_dataset_payload(raw_payload, project_id=project_id)
             try:
                 split_index = dataset.split_names.index(split_name)
             except ValueError as exc:
-                raise NotFoundError(f"Split '{split_name}' was not found.") from exc
+                raise SplitNotFoundError(f"Split '{split_name}' was not found.") from exc
 
             dataset.split_names.pop(split_index)
             for image in dataset.images:
@@ -204,6 +210,12 @@ class SplitService:
             return DatasetMetadata.model_validate(payload)
         except PydanticValidationError as exc:
             raise ValidationError(f"Dataset metadata is invalid for {project_id}.") from exc
+
+    def _get_required_dataset(self, project_id: str) -> DatasetMetadata:
+        try:
+            return self.dataset_service.get_dataset(project_id)
+        except NotFoundError as exc:
+            raise DatasetNotImportedError(project_id) from exc
 
     def _extract_labels(self, dataset: DatasetMetadata) -> list[str]:
         labels: list[str] = []

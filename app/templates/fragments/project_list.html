@@ -1,0 +1,13 @@
+<div id="project-list">
+  {% if projects %}
+  <ul>
+    {% for project in projects %}
+    <li data-project-id="{{ project.id }}">
+      {{ project.name }} ({{ project.task }})
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No projects yet.</p>
+  {% endif %}
+</div>

@@ -1,6 +1,12 @@
 """Pydantic schemas used by API and persistence layers."""
 
-from app.schemas.dataset import DatasetImportRequest, DatasetMetadata
+from app.schemas.dataset import (
+    DatasetImageListItem,
+    DatasetImageListQuery,
+    DatasetImageListResponse,
+    DatasetImportRequest,
+    DatasetMetadata,
+)
 from app.schemas.project import ProjectCreate, ProjectRename, ProjectResponse
 from app.schemas.split import (
     SplitCounts,
@@ -12,6 +18,9 @@ from app.schemas.split import (
 )
 
 __all__ = [
+    "DatasetImageListItem",
+    "DatasetImageListQuery",
+    "DatasetImageListResponse",
     "DatasetImportRequest",
     "DatasetMetadata",
     "ProjectCreate",

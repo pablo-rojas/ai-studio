@@ -1,0 +1,14 @@
+<div id="split-preview">
+  <p>Train: {{ preview.stats.train }}</p>
+  <p>Val: {{ preview.stats.val }}</p>
+  <p>Test: {{ preview.stats.test }}</p>
+  {% if preview.class_distribution %}
+  <ul>
+    {% for class_name, counts in preview.class_distribution.items() %}
+    <li>
+      {{ class_name }}: {{ counts.train }}/{{ counts.val }}/{{ counts.test }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

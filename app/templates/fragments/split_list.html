@@ -1,0 +1,13 @@
+<div id="split-list">
+  {% if splits %}
+  <ul>
+    {% for split in splits %}
+    <li data-split-name="{{ split.name }}">
+      {{ split.name }} (train={{ split.stats.train }}, val={{ split.stats.val }}, test={{ split.stats.test }})
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No splits created.</p>
+  {% endif %}
+</div>

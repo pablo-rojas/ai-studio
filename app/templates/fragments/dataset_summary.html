@@ -1,0 +1,8 @@
+<div id="dataset-summary">
+  {% if dataset %}
+  <p>Dataset ID: {{ dataset.id }}</p>
+  <p>Images: {{ dataset.image_stats.num_images }}</p>
+  {% else %}
+  <p>No dataset imported.</p>
+  {% endif %}
+</div>

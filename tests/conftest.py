@@ -32,9 +32,10 @@ def project_service(workspace: Path) -> ProjectService:
 async def test_client(workspace: Path) -> AsyncClient:
     """Provide an httpx AsyncClient pointing at the test app."""
     app = create_app(paths=WorkspacePaths(root=workspace), store=JsonStore())
-    transport = ASGITransport(app=app, lifespan="on")
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        yield client
+    transport = ASGITransport(app=app)
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            yield client
 
 
 @pytest.fixture

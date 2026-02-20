@@ -1,0 +1,16 @@
+<div id="dataset-image-list">
+  <p>
+    Page {{ listing.page }} / {{ listing.total_pages }} - {{ listing.total_items }} total images
+  </p>
+  {% if listing.items %}
+  <ul>
+    {% for image in listing.items %}
+    <li data-filename="{{ image.filename }}">
+      {{ image.filename }} ({{ image.width }}x{{ image.height }})
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No images match the current filters.</p>
+  {% endif %}
+</div>

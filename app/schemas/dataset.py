@@ -18,6 +18,8 @@ TaskType = Literal[
 
 DatasetSourceFormat = Literal["image_folders", "coco", "csv"]
 SplitValue = Literal["train", "val", "test", "none"]
+DatasetImageSortBy = Literal["filename", "class", "size"]
+SortOrder = Literal["asc", "desc"]
 
 _DATASET_ID_PATTERN = re.compile(r"^dataset-[0-9a-f]{8}$")
 _SOURCE_PATH_PATTERN = re.compile(r"^.+$")
@@ -39,6 +41,13 @@ def _normalize_filename(value: str) -> str:
     if "/" in normalized or "\\" in normalized:
         raise ValueError("Filename must not contain path separators.")
     return normalized
+
+
+def _normalize_optional_query_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.strip().split())
+    return normalized or None
 
 
 class LabelAnnotation(BaseModel):
@@ -200,3 +209,55 @@ class DatasetImportRequest(BaseModel):
         if not normalized:
             raise ValueError("Source path cannot be empty.")
         return normalized
+
+
+class DatasetImageListQuery(BaseModel):
+    """Query parameters for browsing dataset images."""
+
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=50, ge=1, le=200)
+    sort_by: DatasetImageSortBy = "filename"
+    sort_order: SortOrder = "asc"
+    filter_class: str | None = None
+    search: str | None = None
+
+    @field_validator("filter_class", "search")
+    @classmethod
+    def normalize_query_text(cls, value: str | None) -> str | None:
+        """Normalize optional text query parameters."""
+        return _normalize_optional_query_text(value)
+
+
+class DatasetImageListItem(BaseModel):
+    """Single image entry in paginated dataset browsing responses."""
+
+    filename: str = Field(min_length=1)
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+    class_name: str | None = None
+    split: list[SplitValue] = Field(default_factory=list)
+    annotation_count: int = Field(default=0, ge=0)
+
+    @field_validator("filename")
+    @classmethod
+    def validate_filename(cls, value: str) -> str:
+        """Validate copied image filename."""
+        return _normalize_filename(value)
+
+    @field_validator("class_name")
+    @classmethod
+    def normalize_class_name(cls, value: str | None) -> str | None:
+        """Normalize optional class name values."""
+        if value is None:
+            return None
+        return _normalize_class_name(value)
+
+
+class DatasetImageListResponse(BaseModel):
+    """Paginated image browse response payload."""
+
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1)
+    total_items: int = Field(ge=0)
+    total_pages: int = Field(ge=0)
+    items: list[DatasetImageListItem] = Field(default_factory=list)
