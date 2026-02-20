@@ -75,6 +75,47 @@ async def test_split_preview_create_list_get_delete_via_api(
 
 
 @pytest.mark.asyncio
+async def test_split_create_accepts_hx_form_payload(
+    test_client,
+    workspace: Path,
+) -> None:
+    project_id = await _create_project(test_client, name="Split HTMX Project")
+    source_root = workspace.parent / "split_hx_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    import_response = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert import_response.status_code == 200
+
+    create_response = await test_client.post(
+        f"/api/splits/{project_id}",
+        data={
+            "name": "70-20-10",
+            "train": "0.70",
+            "val": "0.20",
+            "test": "0.10",
+            "seed": "7",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert create_response.status_code == 200
+    assert 'id="split-list"' in create_response.text
+    assert "70-20-10" in create_response.text
+    assert "Immutable" in create_response.text
+    assert f"/api/splits/{project_id}/70-20-10" in create_response.text
+
+    list_response = await test_client.get(f"/api/splits/{project_id}")
+    assert list_response.status_code == 200
+    listed_splits = list_response.json()["data"]["splits"]
+    assert [split["name"] for split in listed_splits] == ["70-20-10"]
+
+
+@pytest.mark.asyncio
 async def test_split_preview_without_dataset_returns_standard_error(test_client) -> None:
     project_id = await _create_project(test_client, name="Split Error Project")
 

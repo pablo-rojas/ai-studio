@@ -1,13 +1,139 @@
 <div id="split-list">
   {% if splits %}
-  <ul>
+  <ul class="space-y-4">
     {% for split in splits %}
-    <li data-split-name="{{ split.name }}">
-      {{ split.name }} (train={{ split.stats.train }}, val={{ split.stats.val }}, test={{ split.stats.test }})
+    {% set total = split.stats.train + split.stats.val + split.stats.test + split.stats.none %}
+    <li data-split-name="{{ split.name }}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ split.name }}</h3>
+            <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+              Index {{ split.index }}
+            </span>
+          </div>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Train {{ split.stats.train }} • Val {{ split.stats.val }} • Test {{ split.stats.test }}
+          </p>
+        </div>
+        <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200">
+          {% if split.immutable %}Immutable{% else %}Mutable{% endif %}
+        </span>
+      </div>
+
+      <dl class="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Train</dt>
+          <dd class="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{{ split.stats.train }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Val</dt>
+          <dd class="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{{ split.stats.val }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Test</dt>
+          <dd class="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{{ split.stats.test }}</dd>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</dt>
+          <dd class="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{{ total }}</dd>
+        </div>
+      </dl>
+
+      <details class="mt-4 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <summary class="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+          View Details
+        </summary>
+        <div class="mt-3 space-y-3">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                <th class="py-2">Subset</th>
+                <th class="py-2">Images</th>
+                <th class="py-2">% of total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-slate-100 dark:border-slate-800">
+                <td class="py-2 text-slate-700 dark:text-slate-300">Train</td>
+                <td class="py-2 font-medium text-slate-900 dark:text-slate-100">{{ split.stats.train }}</td>
+                <td class="py-2 text-slate-700 dark:text-slate-300">{{ "%.1f"|format((split.stats.train / total * 100) if total else 0) }}%</td>
+              </tr>
+              <tr class="border-b border-slate-100 dark:border-slate-800">
+                <td class="py-2 text-slate-700 dark:text-slate-300">Val</td>
+                <td class="py-2 font-medium text-slate-900 dark:text-slate-100">{{ split.stats.val }}</td>
+                <td class="py-2 text-slate-700 dark:text-slate-300">{{ "%.1f"|format((split.stats.val / total * 100) if total else 0) }}%</td>
+              </tr>
+              <tr class="border-b border-slate-100 dark:border-slate-800">
+                <td class="py-2 text-slate-700 dark:text-slate-300">Test</td>
+                <td class="py-2 font-medium text-slate-900 dark:text-slate-100">{{ split.stats.test }}</td>
+                <td class="py-2 text-slate-700 dark:text-slate-300">{{ "%.1f"|format((split.stats.test / total * 100) if total else 0) }}%</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-slate-700 dark:text-slate-300">None</td>
+                <td class="py-2 font-medium text-slate-900 dark:text-slate-100">{{ split.stats.none }}</td>
+                <td class="py-2 text-slate-700 dark:text-slate-300">{{ "%.1f"|format((split.stats.none / total * 100) if total else 0) }}%</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {% if split.class_distribution %}
+          <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+            <table class="min-w-full text-left text-sm">
+              <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/70 dark:text-slate-400">
+                <tr>
+                  <th class="px-3 py-2">Class</th>
+                  <th class="px-3 py-2">Train</th>
+                  <th class="px-3 py-2">Val</th>
+                  <th class="px-3 py-2">Test</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for class_name, counts in split.class_distribution|dictsort %}
+                <tr class="border-t border-slate-200 dark:border-slate-700">
+                  <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{{ class_name }}</td>
+                  <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ counts.train }}</td>
+                  <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ counts.val }}</td>
+                  <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ counts.test }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      </details>
+
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/projects/{{ project_id }}/dataset?split_name={{ split.name | urlencode }}&subset=train" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+            Browse Train Images
+          </a>
+          <a href="/projects/{{ project_id }}/dataset?split_name={{ split.name | urlencode }}&subset=val" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+            Browse Val Images
+          </a>
+          <a href="/projects/{{ project_id }}/dataset?split_name={{ split.name | urlencode }}&subset=test" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+            Browse Test Images
+          </a>
+        </div>
+        <button
+          type="button"
+          hx-delete="/api/splits/{{ project_id }}/{{ split.name | urlencode }}"
+          hx-target="#split-list"
+          hx-swap="outerHTML"
+          hx-confirm="Delete split '{{ split.name }}'? This cannot be undone."
+          class="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-500/60 dark:text-rose-300 dark:hover:bg-rose-500/10"
+        >
+          Delete
+        </button>
+      </div>
     </li>
     {% endfor %}
   </ul>
   {% else %}
-  <p>No splits created.</p>
+  <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/40">
+    <p class="text-base font-medium text-slate-900 dark:text-slate-100">No splits created yet.</p>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Create your first immutable train/val/test split.</p>
+  </div>
   {% endif %}
 </div>

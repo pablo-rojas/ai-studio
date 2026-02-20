@@ -7,15 +7,17 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.api.datasets import build_class_badge_map
-from app.api.dependencies import get_dataset_service, get_project_service
+from app.api.dependencies import get_dataset_service, get_project_service, get_split_service
 from app.core.dataset_service import DatasetService
 from app.core.exceptions import NotFoundError
 from app.core.project_service import ProjectService
+from app.core.split_service import SplitService
 from app.schemas.dataset import DatasetImageListQuery
 
 router = APIRouter()
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
+SplitServiceDep = Annotated[SplitService, Depends(get_split_service)]
 
 
 @router.get("/", include_in_schema=False)
@@ -82,5 +84,42 @@ async def dataset_page(
             "query": query.model_dump(mode="json"),
             "class_badge_map": class_badge_map,
             "active_page": "dataset",
+        },
+    )
+
+
+@router.get("/projects/{project_id}/split", include_in_schema=False)
+async def split_page(
+    request: Request,
+    project_id: str,
+    project_service: ProjectServiceDep,
+    dataset_service: DatasetServiceDep,
+    split_service: SplitServiceDep,
+):
+    """Render the split management page for an existing project."""
+    templates: Jinja2Templates = request.app.state.templates
+    project = project_service.get_project(project_id)
+
+    dataset: dict[str, object] | None = None
+    splits: list[dict[str, object]] = []
+
+    try:
+        dataset_model = dataset_service.get_dataset(project_id)
+    except NotFoundError:
+        dataset_model = None
+
+    if dataset_model is not None:
+        dataset = dataset_model.model_dump(mode="json")
+        splits = [split.model_dump(mode="json") for split in split_service.list_splits(project_id)]
+
+    return templates.TemplateResponse(
+        request,
+        "pages/split.html",
+        {
+            "project": project,
+            "project_id": project_id,
+            "dataset": dataset,
+            "splits": splits,
+            "active_page": "split",
         },
     )

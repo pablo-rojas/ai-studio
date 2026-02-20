@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+from json import JSONDecodeError
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.templating import Jinja2Templates
+from pydantic import ValidationError as PydanticValidationError
 
 from app.api.dependencies import get_split_service
 from app.api.responses import is_hx_request, ok_response
@@ -16,12 +19,17 @@ router = APIRouter()
 SplitServiceDep = Annotated[SplitService, Depends(get_split_service)]
 
 
-def _render_split_list_fragment(request: Request, splits: list[dict[str, Any]]):
+def _render_split_list_fragment(
+    request: Request,
+    *,
+    project_id: str,
+    splits: list[dict[str, Any]],
+):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
         request,
         "fragments/split_list.html",
-        {"splits": splits},
+        {"project_id": project_id, "splits": splits},
     )
 
 
@@ -85,6 +93,67 @@ def _build_preview_request(
     return SplitPreviewRequest(ratios=split_ratios, seed=seed)
 
 
+def _normalize_split_create_payload(raw_payload: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(raw_payload)
+    if "ratios" not in payload:
+        train = payload.pop("train", None)
+        val = payload.pop("val", None)
+        test = payload.pop("test", None)
+        if train is not None and val is not None and test is not None:
+            payload["ratios"] = {
+                "train": train,
+                "val": val,
+                "test": test,
+            }
+
+    seed = payload.get("seed")
+    if isinstance(seed, str) and not seed.strip():
+        payload["seed"] = None
+
+    return payload
+
+
+async def _parse_split_create_request(request: Request) -> SplitCreateRequest:
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            raw_payload = await request.json()
+        except JSONDecodeError as exc:
+            raise RequestValidationError(
+                [
+                    {
+                        "type": "json_invalid",
+                        "loc": ("body",),
+                        "msg": "JSON decode error.",
+                        "input": None,
+                    }
+                ]
+            ) from exc
+    else:
+        form = await request.form()
+        raw_payload = dict(form)
+
+    try:
+        if isinstance(raw_payload, dict):
+            normalized: Any = _normalize_split_create_payload(raw_payload)
+        else:
+            normalized = raw_payload
+        return SplitCreateRequest.model_validate(normalized)
+    except PydanticValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+    except (TypeError, ValueError) as exc:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "value_error",
+                    "loc": ("body",),
+                    "msg": "Invalid split payload.",
+                    "input": None,
+                }
+            ]
+        ) from exc
+
+
 @router.get("/{project_id}")
 async def list_splits(
     request: Request,
@@ -95,7 +164,7 @@ async def list_splits(
     splits = split_service.list_splits(project_id)
     payload = [item.model_dump(mode="json") for item in splits]
     if is_hx_request(request):
-        return _render_split_list_fragment(request, payload)
+        return _render_split_list_fragment(request, project_id=project_id, splits=payload)
     return ok_response({"splits": payload})
 
 
@@ -103,15 +172,15 @@ async def list_splits(
 async def create_split(
     request: Request,
     project_id: str,
-    payload: SplitCreateRequest,
     split_service: SplitServiceDep,
 ) -> dict[str, object]:
     """Create and persist a new split."""
+    payload = await _parse_split_create_request(request)
     split = split_service.create_split(project_id, payload)
     if is_hx_request(request):
         refreshed = split_service.list_splits(project_id)
         serialized = [item.model_dump(mode="json") for item in refreshed]
-        return _render_split_list_fragment(request, serialized)
+        return _render_split_list_fragment(request, project_id=project_id, splits=serialized)
     return ok_response(split.model_dump(mode="json"))
 
 
@@ -179,5 +248,5 @@ async def delete_split(
     if is_hx_request(request):
         refreshed = split_service.list_splits(project_id)
         serialized = [item.model_dump(mode="json") for item in refreshed]
-        return _render_split_list_fragment(request, serialized)
+        return _render_split_list_fragment(request, project_id=project_id, splits=serialized)
     return ok_response({"project_id": project_id, "split_name": split_name, "deleted": True})

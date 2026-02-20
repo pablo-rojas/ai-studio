@@ -1,14 +1,65 @@
-<div id="split-preview">
-  <p>Train: {{ preview.stats.train }}</p>
-  <p>Val: {{ preview.stats.val }}</p>
-  <p>Test: {{ preview.stats.test }}</p>
-  {% if preview.class_distribution %}
-  <ul>
-    {% for class_name, counts in preview.class_distribution.items() %}
-    <li>
-      {{ class_name }}: {{ counts.train }}/{{ counts.val }}/{{ counts.test }}
-    </li>
-    {% endfor %}
-  </ul>
+<div id="split-preview" class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+  {% if preview %}
+  {% set total = preview.stats.train + preview.stats.val + preview.stats.test + preview.stats.none %}
+  <div class="space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Preview</h3>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Seed {{ preview.seed }}</p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 text-sm">
+      <div class="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+        <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Train</p>
+        <p class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ preview.stats.train }}</p>
+      </div>
+      <div class="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+        <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Val</p>
+        <p class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ preview.stats.val }}</p>
+      </div>
+      <div class="rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+        <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Test</p>
+        <p class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ preview.stats.test }}</p>
+      </div>
+    </div>
+
+    {% if preview.class_distribution %}
+    <div class="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <table class="min-w-full text-left text-xs">
+        <thead class="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+          <tr>
+            <th class="px-2 py-1.5 uppercase tracking-wide">Class</th>
+            <th class="px-2 py-1.5 uppercase tracking-wide">Train</th>
+            <th class="px-2 py-1.5 uppercase tracking-wide">Val</th>
+            <th class="px-2 py-1.5 uppercase tracking-wide">Test</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for class_name, counts in preview.class_distribution|dictsort %}
+          <tr class="border-t border-slate-200 dark:border-slate-700">
+            <td class="px-2 py-1.5 font-medium text-slate-900 dark:text-slate-100">{{ class_name }}</td>
+            <td class="px-2 py-1.5 text-slate-700 dark:text-slate-300">{{ counts.train }}</td>
+            <td class="px-2 py-1.5 text-slate-700 dark:text-slate-300">{{ counts.val }}</td>
+            <td class="px-2 py-1.5 text-slate-700 dark:text-slate-300">{{ counts.test }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <p class="text-xs text-slate-500 dark:text-slate-400">
+      Total images: {{ total }}
+    </p>
+
+    {% if preview.warnings %}
+    <ul class="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-500/50 dark:bg-amber-500/10 dark:text-amber-200">
+      {% for warning in preview.warnings %}
+      <li>{{ warning }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-600 dark:text-slate-400">Adjust ratios and seed to preview split distribution.</p>
   {% endif %}
 </div>

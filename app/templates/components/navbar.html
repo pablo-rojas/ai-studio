@@ -2,6 +2,7 @@
   {% set nav_items = [
     ("projects", "Projects", "/projects"),
     ("dataset", "Dataset", "/projects/" ~ project.id ~ "/dataset"),
+    ("split", "Split", "/projects/" ~ project.id ~ "/split"),
   ] %}
 {% else %}
   {% set nav_items = [("projects", "Projects", "/projects")] %}

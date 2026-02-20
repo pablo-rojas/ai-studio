@@ -120,6 +120,80 @@ async def test_hx_project_create_rename_delete_flow(test_client) -> None:
     assert final_list.json()["data"]["projects"] == []
 
 
+@pytest.mark.asyncio
+async def test_split_page_shows_dataset_required_state(test_client) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Split Nav Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    response = await test_client.get(f"/projects/{project_id}/split")
+
+    assert response.status_code == 200
+    assert "No dataset imported." in response.text
+    assert "Go to Dataset Page" in response.text
+    assert f"/projects/{project_id}/dataset" in response.text
+    assert "New Split" in response.text
+
+
+@pytest.mark.asyncio
+async def test_split_page_renders_split_form_and_summary_after_creation(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Split Browser Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "split_page_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    response = await test_client.get(f"/projects/{project_id}/split")
+
+    assert response.status_code == 200
+    assert "Create Split" in response.text
+    assert "80-10-10" in response.text
+    assert "Immutable" in response.text
+    assert 'id="split-ratio-train"' in response.text
+    assert 'id="split-ratio-val"' in response.text
+    assert 'id="split-ratio-test"' in response.text
+    assert 'id="split-seed-input"' in response.text
+    assert f"/api/splits/{project_id}/preview" in response.text
+    assert f"/projects/{project_id}/dataset?split_name=80-10-10" in response.text
+
+
+def _build_classification_source(source_root: Path, *, cats: int, dogs: int) -> None:
+    (source_root / "cats").mkdir(parents=True, exist_ok=True)
+    (source_root / "dogs").mkdir(parents=True, exist_ok=True)
+
+    for index in range(cats):
+        _create_image(source_root / "cats" / f"cat_page_{index:03d}.png", color=(220, 120, 120))
+    for index in range(dogs):
+        _create_image(source_root / "dogs" / f"dog_page_{index:03d}.png", color=(120, 120, 220))
+
+
 def _create_image(path: Path, *, color: tuple[int, int, int]) -> None:
     image = Image.new("RGB", size=(240, 180), color=color)
     image.save(path)
