@@ -32,7 +32,17 @@
     </div>
     <div class="rounded-md border border-slate-200 p-3 dark:border-slate-700">
       <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Class</dt>
-      <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ class_name or "n/a" }}</dd>
+      <dd class="mt-1">
+        {% if class_name %}
+        <span
+          class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ class_badge_map.get(class_name, 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200') }}"
+        >
+          {{ class_name }}
+        </span>
+        {% else %}
+        <span class="font-medium text-slate-900 dark:text-slate-100">n/a</span>
+        {% endif %}
+      </dd>
     </div>
     <div class="rounded-md border border-slate-200 p-3 dark:border-slate-700">
       <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Annotations</dt>

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.api.datasets import build_class_badge_map
 from app.api.dependencies import get_dataset_service, get_project_service
 from app.core.dataset_service import DatasetService
 from app.core.exceptions import NotFoundError
@@ -68,6 +69,7 @@ async def dataset_page(
         dataset = dataset_model.model_dump(mode="json")
     if listing_model is not None:
         listing = listing_model.model_dump(mode="json")
+    class_badge_map = build_class_badge_map(dataset_model.classes if dataset_model else [])
 
     return templates.TemplateResponse(
         request,
@@ -78,6 +80,7 @@ async def dataset_page(
             "dataset": dataset,
             "listing": listing,
             "query": query.model_dump(mode="json"),
+            "class_badge_map": class_badge_map,
             "active_page": "dataset",
         },
     )

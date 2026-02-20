@@ -29,6 +29,20 @@ DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
 ModelT = TypeVar("ModelT")
 
 _CHUNK_SIZE_BYTES = 1024 * 1024
+_CLASS_BADGE_COLORS: tuple[str, ...] = (
+    "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200",
+    "bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-200",
+    "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200",
+    "bg-lime-100 text-lime-800 dark:bg-lime-500/20 dark:text-lime-200",
+    "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
+    "bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-200",
+    "bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-200",
+    "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200",
+    "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200",
+    "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-200",
+    "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200",
+    "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-500/20 dark:text-fuchsia-200",
+)
 
 
 def _render_dataset_summary_fragment(request: Request, dataset: dict[str, Any]):
@@ -46,6 +60,7 @@ def _render_dataset_images_fragment(
     project_id: str,
     listing: dict[str, Any],
     query: dict[str, Any],
+    class_badge_map: dict[str, str],
 ):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
@@ -55,6 +70,7 @@ def _render_dataset_images_fragment(
             "project_id": project_id,
             "listing": listing,
             "query": query,
+            "class_badge_map": class_badge_map,
         },
     )
 
@@ -66,6 +82,7 @@ def _render_dataset_image_detail_fragment(
     image: dict[str, Any],
     class_name: str | None,
     split_assignments: list[dict[str, str]],
+    class_badge_map: dict[str, str],
 ):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
@@ -76,6 +93,7 @@ def _render_dataset_image_detail_fragment(
             "image": image,
             "class_name": class_name,
             "split_assignments": split_assignments,
+            "class_badge_map": class_badge_map,
         },
     )
 
@@ -126,6 +144,15 @@ def _extract_primary_class_name(annotations: list[dict[str, Any]]) -> str | None
             return "anomalous" if bool(annotation.get("is_anomalous")) else "normal"
 
     return None
+
+
+def build_class_badge_map(class_names: list[str]) -> dict[str, str]:
+    unique_names = sorted({name for name in class_names if name})
+    badge_map: dict[str, str] = {}
+    color_count = len(_CLASS_BADGE_COLORS)
+    for index, class_name in enumerate(unique_names):
+        badge_map[class_name] = _CLASS_BADGE_COLORS[index % color_count]
+    return badge_map
 
 
 @router.get("/{project_id}")
@@ -237,12 +264,15 @@ async def list_dataset_images(
     )
     listing = dataset_service.list_images(project_id, query)
     payload = listing.model_dump(mode="json")
+    dataset = dataset_service.get_dataset(project_id)
+    class_badge_map = build_class_badge_map(dataset.classes)
     if is_hx_request(request):
         return _render_dataset_images_fragment(
             request,
             project_id=project_id,
             listing=payload,
             query=query.model_dump(mode="json"),
+            class_badge_map=class_badge_map,
         )
     return ok_response(payload)
 
@@ -262,6 +292,7 @@ async def get_dataset_image_info(
     for index, split_name in enumerate(dataset.split_names):
         if index < len(image.split):
             split_assignments.append({"name": split_name, "value": image.split[index]})
+    class_badge_map = build_class_badge_map(dataset.classes)
 
     if is_hx_request(request):
         return _render_dataset_image_detail_fragment(
@@ -270,6 +301,7 @@ async def get_dataset_image_info(
             image=image_payload,
             class_name=_extract_primary_class_name(image_payload["annotations"]),
             split_assignments=split_assignments,
+            class_badge_map=class_badge_map,
         )
 
     return ok_response({"image": image_payload, "split_names": dataset.split_names})
