@@ -1,24 +1,497 @@
-<section id="training-experiment-detail" class="space-y-3 rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
-  <div class="flex items-center justify-between gap-3">
-    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ experiment.name }}</h3>
-    <span class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ experiment.status }}</span>
-  </div>
-  <dl class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-    <div>
-      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment ID</dt>
-      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.id }}</dd>
+{% set status = experiment.status %}
+{% set config_locked = status in ["pending", "training", "completed", "failed", "cancelled"] %}
+{% set status_classes = {
+  "created": "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200",
+  "pending": "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200",
+  "training": "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200",
+  "completed": "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
+  "failed": "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200",
+  "cancelled": "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200",
+} %}
+{% set last_epoch = metrics.epochs[-1] if metrics and metrics.epochs else none %}
+{% set progress_percent = 0 %}
+{% if last_epoch and experiment.hyperparameters.max_epochs > 0 %}
+  {% set progress_percent = ((last_epoch.epoch / experiment.hyperparameters.max_epochs) * 100) | round(1) %}
+{% endif %}
+
+<section
+  id="training-experiment-workspace"
+  class="grid grid-cols-1 gap-4 xl:grid-cols-2"
+  data-training-project-id="{{ project_id }}"
+  data-training-experiment-id="{{ experiment.id }}"
+  data-training-status="{{ experiment.status }}"
+  data-training-max-epochs="{{ experiment.hyperparameters.max_epochs }}"
+  data-training-stream-url="/api/training/{{ project_id }}/experiments/{{ experiment.id }}/stream"
+>
+  <article class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Configuration</h2>
+      <span class="rounded-full px-2 py-1 text-xs font-medium uppercase tracking-wide {{ status_classes.get(status, status_classes['created']) }}">
+        {{ status }}
+      </span>
     </div>
-    <div>
-      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Split</dt>
-      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.split_name }}</dd>
+
+    <form
+      hx-patch="/api/training/{{ project_id }}/experiments/{{ experiment.id }}"
+      hx-target="#training-experiment-workspace"
+      hx-swap="outerHTML"
+      class="space-y-4"
+    >
+      <fieldset {% if config_locked %}disabled{% endif %} class="space-y-4 disabled:cursor-not-allowed disabled:opacity-70">
+        <label class="block space-y-1">
+          <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment Name</span>
+          <input
+            type="text"
+            name="name"
+            value="{{ experiment.name }}"
+            maxlength="80"
+            required
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+        </label>
+
+        <label class="block space-y-1">
+          <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Split</span>
+          <select
+            name="split_name"
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+            {% for split_name in split_names %}
+            <option value="{{ split_name }}" {% if split_name == experiment.split_name %}selected{% endif %}>
+              {{ split_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Backbone</span>
+            <select
+              name="model.backbone"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              {% for backbone_key, backbone_label in backbone_options %}
+              <option value="{{ backbone_key }}" {% if backbone_key == experiment.model.backbone %}selected{% endif %}>
+                {{ backbone_label }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Optimizer</span>
+            <select
+              name="hyperparameters.optimizer"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              {% for optimizer in ["adam", "adamw", "sgd"] %}
+              <option value="{{ optimizer }}" {% if optimizer == experiment.hyperparameters.optimizer %}selected{% endif %}>
+                {{ optimizer | upper }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Learning Rate</span>
+            <input
+              type="number"
+              step="0.000001"
+              min="0.000001"
+              name="hyperparameters.learning_rate"
+              value="{{ experiment.hyperparameters.learning_rate }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Weight Decay</span>
+            <input
+              type="number"
+              step="0.000001"
+              min="0"
+              name="hyperparameters.weight_decay"
+              value="{{ experiment.hyperparameters.weight_decay }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Scheduler</span>
+            <select
+              name="hyperparameters.scheduler"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              {% for scheduler in ["cosine", "step", "multistep", "poly", "none"] %}
+              <option value="{{ scheduler }}" {% if scheduler == experiment.hyperparameters.scheduler %}selected{% endif %}>
+                {{ scheduler }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Warmup Epochs</span>
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              name="hyperparameters.warmup_epochs"
+              value="{{ experiment.hyperparameters.warmup_epochs }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Epochs</span>
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              name="hyperparameters.max_epochs"
+              value="{{ experiment.hyperparameters.max_epochs }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Batch Size</span>
+            <input
+              type="number"
+              min="1"
+              max="256"
+              name="hyperparameters.batch_size"
+              value="{{ experiment.hyperparameters.batch_size }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Batch Multiplier</span>
+            <input
+              type="number"
+              min="1"
+              max="64"
+              name="hyperparameters.batch_multiplier"
+              value="{{ experiment.hyperparameters.batch_multiplier }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Early Stopping Patience</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              name="hyperparameters.early_stopping_patience"
+              value="{{ experiment.hyperparameters.early_stopping_patience }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Loss</span>
+            <select
+              name="hyperparameters.loss"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              {% for loss_name in ["cross_entropy", "focal", "label_smoothing_cross_entropy"] %}
+              <option value="{{ loss_name }}" {% if loss_name == experiment.hyperparameters.loss %}selected{% endif %}>
+                {{ loss_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Label Smoothing</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="0.5"
+              name="hyperparameters.label_smoothing"
+              value="{{ experiment.hyperparameters.label_smoothing }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Dropout</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="0.9"
+              name="hyperparameters.dropout"
+              value="{{ experiment.hyperparameters.dropout }}"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Precision</span>
+            <select
+              name="hardware.precision"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              {% for precision in ["32", "16-mixed", "bf16-mixed"] %}
+              <option value="{{ precision }}" {% if precision == experiment.hardware.precision %}selected{% endif %}>
+                {{ precision }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-2 text-sm text-slate-700 dark:text-slate-300 md:grid-cols-2">
+          <label class="inline-flex items-center gap-2">
+            <input type="hidden" name="model.pretrained" value="false">
+            <input type="checkbox" name="model.pretrained" value="true" {% if experiment.model.pretrained %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950">
+            Use pretrained weights
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="hidden" name="model.freeze_backbone" value="false">
+            <input type="checkbox" name="model.freeze_backbone" value="true" {% if experiment.model.freeze_backbone %}checked{% endif %} class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950">
+            Freeze backbone
+          </label>
+        </div>
+
+        <div class="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/40">
+          <p class="font-medium text-slate-800 dark:text-slate-200">Augmentation Toggles</p>
+          <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">Enable or disable individual train transforms.</p>
+          <div class="mt-2 space-y-2">
+            {% for step in experiment.augmentations.train %}
+            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                name="ui_augmentations_train_enabled[]"
+                value="{{ step.name }}"
+                checked
+                class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950"
+              >
+              <span>{{ step.name }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <input type="hidden" name="hyperparameters.momentum" value="{{ experiment.hyperparameters.momentum }}">
+        <input type="hidden" name="hyperparameters.step_size" value="{{ experiment.hyperparameters.step_size }}">
+        <input type="hidden" name="hyperparameters.gamma" value="{{ experiment.hyperparameters.gamma }}">
+        <input type="hidden" name="hyperparameters.poly_power" value="{{ experiment.hyperparameters.poly_power }}">
+        {% for milestone in experiment.hyperparameters.milestones %}
+        <input type="hidden" name="hyperparameters.milestones[]" value="{{ milestone }}">
+        {% endfor %}
+        {% for device in experiment.hardware.selected_devices %}
+        <input type="hidden" name="hardware.selected_devices[]" value="{{ device }}">
+        {% endfor %}
+      </fieldset>
+
+      <div class="flex items-center justify-end gap-2">
+        <button
+          type="submit"
+          {% if config_locked %}disabled{% endif %}
+          class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+        >
+          Save Config
+        </button>
+      </div>
+    </form>
+  </article>
+
+  <article class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Results</h2>
+      <span data-training-status-label class="rounded-full px-2 py-1 text-xs font-medium uppercase tracking-wide {{ status_classes.get(status, status_classes['created']) }}">
+        {{ status }}
+      </span>
     </div>
-    <div>
-      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Backbone</dt>
-      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.model.backbone }}</dd>
+
+    <div class="space-y-2">
+      <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+        <span>Progress</span>
+        {% if last_epoch %}
+        <span data-training-epoch-label>Epoch {{ last_epoch.epoch }} / {{ experiment.hyperparameters.max_epochs }}</span>
+        {% else %}
+        <span data-training-epoch-label>Epoch 0 / {{ experiment.hyperparameters.max_epochs }}</span>
+        {% endif %}
+      </div>
+      <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+        <div
+          data-training-progress-fill
+          class="h-full bg-slate-900 transition-all dark:bg-slate-100"
+          style="width: {{ progress_percent }}%;"
+        ></div>
+      </div>
     </div>
-    <div>
-      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Max Epochs</dt>
-      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.hyperparameters.max_epochs }}</dd>
+
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+      <div class="mb-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <span class="font-medium uppercase tracking-wide">Loss Curves</span>
+        <div class="flex items-center gap-4">
+          <span class="inline-flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-red-600"></span>
+            Train
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-green-600"></span>
+            Val
+          </span>
+        </div>
+      </div>
+      <div class="relative">
+        <svg
+          data-training-loss-chart
+          class="h-72 w-full"
+          viewBox="0 0 640 300"
+          preserveAspectRatio="none"
+          aria-label="Loss curves"
+        >
+          <line x1="64" y1="24" x2="64" y2="240" stroke="currentColor" class="text-slate-300 dark:text-slate-700" />
+          <line x1="64" y1="240" x2="620" y2="240" stroke="currentColor" class="text-slate-300 dark:text-slate-700" />
+          <g data-training-loss-y-ticks></g>
+          <g data-training-loss-x-ticks></g>
+          <polyline data-training-loss-train fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+          <polyline data-training-loss-val fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+          <text x="342" y="286" text-anchor="middle" class="fill-current text-[11px] text-slate-500 dark:text-slate-400">Epoch</text>
+          <text x="18" y="132" text-anchor="middle" transform="rotate(-90 18 132)" class="fill-current text-[11px] text-slate-500 dark:text-slate-400">Loss</text>
+        </svg>
+        <p data-training-loss-empty class="absolute inset-0 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+          No epoch metrics yet.
+        </p>
+      </div>
+      <div class="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-300">
+        <span>Train: <strong data-training-loss-train-latest>—</strong></span>
+        <span>Val: <strong data-training-loss-val-latest>—</strong></span>
+      </div>
     </div>
-  </dl>
+
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+      <div class="mb-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <span class="font-medium uppercase tracking-wide">F1 Curves</span>
+        <div class="flex items-center gap-4">
+          <span class="inline-flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-red-600"></span>
+            Train
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-green-600"></span>
+            Val
+          </span>
+        </div>
+      </div>
+      <div class="relative">
+        <svg
+          data-training-metric-chart
+          class="h-72 w-full"
+          viewBox="0 0 640 300"
+          preserveAspectRatio="none"
+          aria-label="F1 curves"
+        >
+          <line x1="64" y1="24" x2="64" y2="240" stroke="currentColor" class="text-slate-300 dark:text-slate-700" />
+          <line x1="64" y1="240" x2="620" y2="240" stroke="currentColor" class="text-slate-300 dark:text-slate-700" />
+          <g data-training-metric-y-ticks></g>
+          <g data-training-metric-x-ticks></g>
+          <polyline data-training-metric-train fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+          <polyline data-training-metric-val fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+          <text x="342" y="286" text-anchor="middle" class="fill-current text-[11px] text-slate-500 dark:text-slate-400">Epoch</text>
+          <text x="18" y="132" text-anchor="middle" transform="rotate(-90 18 132)" class="fill-current text-[11px] text-slate-500 dark:text-slate-400">F1</text>
+        </svg>
+        <p data-training-metric-empty class="absolute inset-0 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+          No metric values yet.
+        </p>
+      </div>
+      <div class="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600 dark:text-slate-300">
+        <span>Train F1: <strong data-training-metric-train-latest>—</strong></span>
+        <span>Val F1: <strong data-training-metric-val-latest>—</strong></span>
+      </div>
+    </div>
+
+    {% if experiment.final_metrics %}
+    <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+      <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Final Metrics</h3>
+      <dl class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {% for metric_name, metric_value in experiment.final_metrics.items() %}
+        <div>
+          <dt class="text-xs text-slate-500 dark:text-slate-400">{{ metric_name }}</dt>
+          <dd class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ "%.4f"|format(metric_value) }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+    </div>
+    {% endif %}
+
+    {% if experiment.error %}
+    <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+      <p class="font-medium">{{ experiment.error.type }}</p>
+      <p class="mt-1">{{ experiment.error.message }}</p>
+    </div>
+    {% endif %}
+
+    <div class="flex flex-wrap items-center gap-2">
+      {% if status == "created" %}
+      <button
+        type="button"
+        hx-post="/api/training/{{ project_id }}/experiments/{{ experiment.id }}/train"
+        hx-target="#training-experiment-workspace"
+        hx-swap="outerHTML"
+        class="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+      >
+        Start Training
+      </button>
+      {% elif status in ["pending", "training"] %}
+      <button
+        type="button"
+        hx-post="/api/training/{{ project_id }}/experiments/{{ experiment.id }}/stop"
+        hx-target="#training-experiment-workspace"
+        hx-swap="outerHTML"
+        class="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500"
+      >
+        Stop Training
+      </button>
+      {% elif status in ["failed", "cancelled"] %}
+      <button
+        type="button"
+        hx-post="/api/training/{{ project_id }}/experiments/{{ experiment.id }}/resume"
+        hx-target="#training-experiment-workspace"
+        hx-swap="outerHTML"
+        class="rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500"
+      >
+        Resume
+      </button>
+      <button
+        type="button"
+        hx-post="/api/training/{{ project_id }}/experiments/{{ experiment.id }}/restart"
+        hx-target="#training-experiment-workspace"
+        hx-swap="outerHTML"
+        class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        Restart
+      </button>
+      {% elif status == "completed" %}
+      <button
+        type="button"
+        hx-post="/api/training/{{ project_id }}/experiments/{{ experiment.id }}/restart"
+        hx-target="#training-experiment-workspace"
+        hx-swap="outerHTML"
+        class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        Restart
+      </button>
+      {% endif %}
+    </div>
+  </article>
+
+  <script type="application/json" data-training-metrics>
+    {{ metrics | tojson }}
+  </script>
 </section>

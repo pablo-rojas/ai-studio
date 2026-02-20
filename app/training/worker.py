@@ -111,7 +111,7 @@ def run_experiment_training(
             if last_checkpoint.exists():
                 checkpoint_path = str(last_checkpoint)
 
-        trainer.fit(module=module, datamodule=data_module, ckpt_path=checkpoint_path)
+        trainer.fit(model=module, datamodule=data_module, ckpt_path=checkpoint_path)
 
         metrics = _load_metrics(store, paths, project_id, experiment_id)
         final_metrics = _final_metrics(metrics)

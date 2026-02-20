@@ -7,17 +7,34 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from app.api.datasets import build_class_badge_map
-from app.api.dependencies import get_dataset_service, get_project_service, get_split_service
+from app.api.dependencies import (
+    get_dataset_service,
+    get_project_service,
+    get_split_service,
+    get_training_service,
+)
 from app.core.dataset_service import DatasetService
 from app.core.exceptions import NotFoundError
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
+from app.core.training_service import TrainingService
 from app.schemas.dataset import DatasetImageListQuery
 
 router = APIRouter()
 ProjectServiceDep = Annotated[ProjectService, Depends(get_project_service)]
 DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
 SplitServiceDep = Annotated[SplitService, Depends(get_split_service)]
+TrainingServiceDep = Annotated[TrainingService, Depends(get_training_service)]
+
+_CLASSIFICATION_BACKBONES: tuple[tuple[str, str], ...] = (
+    ("resnet18", "ResNet-18"),
+    ("resnet34", "ResNet-34"),
+    ("resnet50", "ResNet-50"),
+    ("efficientnet_b0", "EfficientNet-B0"),
+    ("efficientnet_b3", "EfficientNet-B3"),
+    ("mobilenet_v3_small", "MobileNetV3-Small"),
+    ("mobilenet_v3_large", "MobileNetV3-Large"),
+)
 
 
 @router.get("/", include_in_schema=False)
@@ -125,5 +142,72 @@ async def split_page(
             "dataset": dataset,
             "splits": splits,
             "active_page": "split",
+        },
+    )
+
+
+@router.get("/projects/{project_id}/training", include_in_schema=False)
+async def training_page(
+    request: Request,
+    project_id: str,
+    project_service: ProjectServiceDep,
+    dataset_service: DatasetServiceDep,
+    training_service: TrainingServiceDep,
+):
+    """Render the experiment configuration and training page."""
+    templates: Jinja2Templates = request.app.state.templates
+    project = project_service.get_project(project_id)
+
+    dataset: dict[str, object] | None = None
+    split_names: list[str] = []
+    experiments: list[dict[str, object]] = []
+    selected_experiment: dict[str, object] | None = None
+    selected_metrics: dict[str, object] = {"epochs": []}
+    selected_experiment_id = request.query_params.get("experiment_id")
+
+    try:
+        dataset_model = dataset_service.get_dataset(project_id)
+    except NotFoundError:
+        dataset_model = None
+
+    if dataset_model is not None:
+        dataset = dataset_model.model_dump(mode="json")
+        split_names = list(dataset_model.split_names)
+        experiments = [
+            experiment.model_dump(mode="json")
+            for experiment in training_service.list_experiments(project_id)
+        ]
+
+        if selected_experiment_id is None and experiments:
+            selected_experiment_id = str(experiments[0]["id"])
+
+        if selected_experiment_id is not None:
+            try:
+                experiment_model = training_service.get_experiment(
+                    project_id,
+                    selected_experiment_id,
+                )
+                selected_experiment = experiment_model.model_dump(mode="json")
+                selected_metrics = training_service.get_metrics(
+                    project_id,
+                    selected_experiment_id,
+                ).model_dump(mode="json")
+            except NotFoundError:
+                selected_experiment_id = None
+
+    return templates.TemplateResponse(
+        request,
+        "pages/training.html",
+        {
+            "project": project,
+            "project_id": project_id,
+            "dataset": dataset,
+            "split_names": split_names,
+            "experiments": experiments,
+            "selected_experiment": selected_experiment,
+            "selected_experiment_id": selected_experiment_id,
+            "selected_metrics": selected_metrics,
+            "backbone_options": _CLASSIFICATION_BACKBONES,
+            "active_page": "training",
         },
     )

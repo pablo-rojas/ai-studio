@@ -237,6 +237,91 @@ async def test_split_page_renders_split_form_and_summary_after_creation(
     assert f"/projects/{project_id}/dataset?split_name=80-10-10" in response.text
 
 
+@pytest.mark.asyncio
+async def test_training_page_shows_dataset_required_state(test_client) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Training Nav Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    response = await test_client.get(f"/projects/{project_id}/training")
+
+    assert response.status_code == 200
+    assert "No dataset imported." in response.text
+    assert "Go to Dataset Page" in response.text
+    assert f"/projects/{project_id}/dataset" in response.text
+
+
+@pytest.mark.asyncio
+async def test_training_page_renders_experiment_editor_and_live_chart_workspace(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Training Browser Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "training_page_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    created_experiment = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Baseline", "split_name": "80-10-10"},
+    )
+    assert created_experiment.status_code == 200
+    experiment_id = created_experiment.json()["data"]["id"]
+
+    response = await test_client.get(
+        f"/projects/{project_id}/training?experiment_id={experiment_id}"
+    )
+
+    assert response.status_code == 200
+    assert "Training" in response.text
+    assert "New Experiment" in response.text
+    assert "Start Training" in response.text
+    assert "Loss Curves" in response.text
+    assert "F1 Curves" in response.text
+    assert "Epoch" in response.text
+    assert "Loss" in response.text
+    assert "F1" in response.text
+    assert "data-training-loss-x-ticks" in response.text
+    assert "data-training-loss-y-ticks" in response.text
+    assert "data-training-metric-x-ticks" in response.text
+    assert "data-training-metric-y-ticks" in response.text
+    assert "data-training-metric-train" in response.text
+    assert "data-training-metric-val" in response.text
+    assert "data-training-epoch-label" in response.text
+    assert "data-training-loss-caption" not in response.text
+    assert "data-training-metric-caption" not in response.text
+    assert 'id="training-experiment-list"' in response.text
+    assert 'id="training-experiment-workspace"' in response.text
+    assert f"/api/training/{project_id}/experiments" in response.text
+    assert f"/api/training/{project_id}/experiments/{experiment_id}/stream" in response.text
+    assert f"/projects/{project_id}/training" in response.text
+
+
 def _build_classification_source(source_root: Path, *, cats: int, dogs: int) -> None:
     (source_root / "cats").mkdir(parents=True, exist_ok=True)
     (source_root / "dogs").mkdir(parents=True, exist_ok=True)
