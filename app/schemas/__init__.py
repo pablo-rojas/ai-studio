@@ -16,6 +16,13 @@ from app.schemas.split import (
     SplitRatios,
     SplitSummary,
 )
+from app.schemas.training import (
+    AugmentationConfig,
+    AugmentationStep,
+    HyperparameterConfig,
+    ModelConfig,
+    TrainingConfig,
+)
 
 __all__ = [
     "DatasetImageListItem",
@@ -32,4 +39,9 @@ __all__ = [
     "SplitPreviewResponse",
     "SplitRatios",
     "SplitSummary",
+    "AugmentationConfig",
+    "AugmentationStep",
+    "HyperparameterConfig",
+    "ModelConfig",
+    "TrainingConfig",
 ]
