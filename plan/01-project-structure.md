@@ -37,7 +37,7 @@ ai-studio/
 │   ├── models/                    # Model definitions
 │   │   ├── __init__.py
 │   │   ├── catalog.py             # Architecture registry (name → factory)
-│   │   ├── backbones.py           # Feature extractor wrappers around torchvision
+│   │   ├── backbones.py           # Feature extractor wrappers (torchvision + HuggingFace)
 │   │   ├── heads/                 # Task-specific heads
 │   │   │   ├── __init__.py
 │   │   │   ├── classification.py
@@ -196,9 +196,9 @@ Pure Python service functions. No FastAPI or HTTP dependencies. Each service:
 ### `app/models/` — Model Definitions
 
 - `catalog.py`: a dictionary mapping `(task, architecture_name)` → factory function that returns a `nn.Module`.
-- `backbones.py`: wrappers around `torchvision.models` that extract feature maps at specified layers.
+- `backbones.py`: wrappers around `torchvision.models` and HuggingFace Transformers that extract feature maps at specified layers.
 - `heads/`: one file per task, each defining the head module(s) compatible with that task.
-- `pretrained.py`: manages downloading and caching pretrained weights from torchvision.
+- `pretrained.py`: manages downloading and caching pretrained weights from torchvision and HuggingFace.
 
 ### `app/datasets/` — Data Loading
 
@@ -326,6 +326,7 @@ dependencies = [
     "torch>=2.2",
     "torchvision>=0.17",
     "pytorch-lightning>=2.2",
+    "transformers>=4.40",          # HuggingFace Transformers (DINOv3, etc.)
     "onnx>=1.15",
     "onnxruntime>=1.17",
     "onnxsim>=0.4",               # ONNX graph simplification

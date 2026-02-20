@@ -59,10 +59,16 @@ def list_architectures(task: str) -> list[str]:
 | EfficientNet-B3 | `efficientnet_b3` | `torchvision.models.efficientnet_b3` | Higher accuracy |
 | MobileNetV3-Small | `mobilenet_v3_small` | `torchvision.models.mobilenet_v3_small` | Edge-optimized |
 | MobileNetV3-Large | `mobilenet_v3_large` | `torchvision.models.mobilenet_v3_large` | Edge, better accuracy |
+| DINOv3 ViT-S/14 | `dinov3_vit_small` | `transformers` (HuggingFace) | Self-supervised ViT, strong features |
+| DINOv3 ViT-B/14 | `dinov3_vit_base` | `transformers` (HuggingFace) | Self-supervised ViT, higher capacity |
+| DINOv3 ViT-L/14 | `dinov3_vit_large` | `transformers` (HuggingFace) | Self-supervised ViT, highest capacity |
+| DINOv3 ConvNeXt-S | `dinov3_convnext_small` | `transformers` (HuggingFace) | Self-supervised ConvNeXt |
+| DINOv3 ConvNeXt-B | `dinov3_convnext_base` | `transformers` (HuggingFace) | Self-supervised ConvNeXt, mid-range |
+| DINOv3 ConvNeXt-L | `dinov3_convnext_large` | `transformers` (HuggingFace) | Self-supervised ConvNeXt, high capacity |
 
 ### Anomaly Detection
 
-Anomaly detection uses a custom student–teacher pipeline (Uninformed Students, Bergmann et al. 2020) rather than torchvision models. The architecture is not yet fully finalised — it will be implemented from scratch and may evolve during development (Phase 22).
+Anomaly detection uses a custom student–teacher pipeline (Uninformed Students, Bergmann et al. 2020) rather than torchvision models. The architecture is not yet fully finalised — it will be implemented from scratch and may evolve during development (Phase 23).
 
 | Architecture | Key | Source | Notes |
 |-------------|-----|--------|-------|
@@ -76,6 +82,8 @@ Anomaly detection uses a custom student–teacher pipeline (Uninformed Students,
 | FCOS (ResNet-50) | `fcos_resnet50` | `torchvision.models.detection.fcos_resnet50_fpn` |
 | RetinaNet (ResNet-50) | `retinanet_resnet50` | `torchvision.models.detection.retinanet_resnet50_fpn` |
 | SSDLite (MobileNetV3) | `ssdlite_mobilenet_v3` | `torchvision.models.detection.ssdlite320_mobilenet_v3_large` |
+| DINOv3 ViT-B + Faster R-CNN | `dinov3_vit_base_fasterrcnn` | `transformers` backbone + torchvision detection head |
+| DINOv3 ConvNeXt-B + Faster R-CNN | `dinov3_convnext_base_fasterrcnn` | `transformers` backbone + torchvision detection head |
 
 ### Oriented Object Detection
 
@@ -91,6 +99,8 @@ To be defined.
 | DeepLabV3 (ResNet-101) | `deeplabv3_resnet101` | `torchvision.models.segmentation.deeplabv3_resnet101` |
 | DeepLabV3 (MobileNetV3) | `deeplabv3_mobilenet` | `torchvision.models.segmentation.deeplabv3_mobilenet_v3_large` |
 | LRASPP (MobileNetV3) | `lraspp_mobilenet` | `torchvision.models.segmentation.lraspp_mobilenet_v3_large` |
+| DINOv3 ViT-B + Linear Decoder | `dinov3_vit_base_seg` | `transformers` backbone + linear segmentation decoder |
+| DINOv3 ConvNeXt-B + FPN Decoder | `dinov3_convnext_base_seg` | `transformers` backbone + FPN segmentation decoder |
 
 ### Instance Segmentation
 
@@ -118,9 +128,9 @@ Same architectures as classification, but with a regression head (`num_outputs` 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `backbone` | string | Backbone architecture key |
+| `backbone` | string | Backbone architecture key (torchvision or HuggingFace) |
 | `head` | string | Task type (determines which head to use) |
-| `pretrained` | bool | Whether to use pretrained ImageNet weights |
+| `pretrained` | bool | Whether to use pretrained weights (ImageNet for torchvision, self-supervised for DINOv3) |
 | `freeze_backbone` | bool | Whether to freeze backbone parameters during training |
 | `dropout` | float | Dropout rate before final layer (classification/regression only) |
 

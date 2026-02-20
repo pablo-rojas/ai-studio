@@ -32,10 +32,11 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 | **Phase 19** | Object Detection | Task definition, bbox handling, detection models |
 | **Phase 20** | Semantic Segmentation | Task definition, mask handling, segmentation models |
 | **Phase 21** | Instance Segmentation | Task definition, Mask R-CNN, COCO instance format |
-| **Phase 22** | Anomaly Detection | Task definition, metrics, evaluation adaptations |
-| **Phase 23** | Regression | Task definition, target normalization, scatter plots |
-| **Phase 24** | Oriented Object Detection | Angle regression, rotated IoU, DOTA/YOLO-OBB import |
-| **Phase 25** | Polish & Extras | Multi-GPU, extra exports, advanced features |
+| **Phase 22** | DINOv3 Models | DINOv3-ConvNeXt & DINOv3-ViT backbones via HuggingFace Transformers |
+| **Phase 23** | Anomaly Detection | Task definition, metrics, evaluation adaptations |
+| **Phase 24** | Regression | Task definition, target normalization, scatter plots |
+| **Phase 25** | Oriented Object Detection | Angle regression, rotated IoU, DOTA/YOLO-OBB import |
+| **Phase 26** | Polish & Extras | Multi-GPU, extra exports, advanced features |
 
 ---
 
@@ -522,7 +523,55 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 22 — Anomaly Detection
+## Phase 22 — DINOv3 Models
+
+**Goal**: Integrate the DINOv3 model family (ConvNeXt and ViT variants) as additional backbone options for classification, detection, and segmentation tasks, sourced from HuggingFace Transformers.
+
+### Deliverables
+
+| Component | Scope |
+|-----------|-------|
+| **HuggingFace integration** | Add `transformers` dependency; implement a HuggingFace backbone wrapper that exposes the same `BackboneWrapper` interface as torchvision backbones |
+| **DINOv3-ViT backbones** | `dinov3_vit_small`, `dinov3_vit_base`, `dinov3_vit_large` — Vision Transformer backbones pretrained with DINOv3 self-supervised method |
+| **DINOv3-ConvNeXt backbones** | `dinov3_convnext_small`, `dinov3_convnext_base`, `dinov3_convnext_large` — ConvNeXt backbones pretrained with DINOv3 |
+| **Classification models** | Register DINOv3 backbones + FC classification head in the architecture catalog |
+| **Detection models** | Register DINOv3 backbones as feature extractors for detection heads (Faster R-CNN, RetinaNet, FCOS with DINOv3 backbone + FPN) |
+| **Segmentation models** | Register DINOv3 backbones for semantic segmentation (DINOv3 backbone + segmentation decoder) |
+| **Weight management** | Download and cache HuggingFace pretrained weights; integrate with existing pretrained weight system |
+| **Preprocessing adapter** | Handle DINOv3-specific image preprocessing (different normalization stats and input resolutions) |
+| **ONNX export support** | Ensure DINOv3-based models export cleanly to ONNX |
+
+### Architecture Additions
+
+| Architecture | Key | Source | Tasks |
+|-------------|-----|--------|-------|
+| DINOv3 ViT-S/14 | `dinov3_vit_small` | `transformers` | Classification, Detection, Segmentation |
+| DINOv3 ViT-B/14 | `dinov3_vit_base` | `transformers` | Classification, Detection, Segmentation |
+| DINOv3 ViT-L/14 | `dinov3_vit_large` | `transformers` | Classification, Detection, Segmentation |
+| DINOv3 ConvNeXt-S | `dinov3_convnext_small` | `transformers` | Classification, Detection, Segmentation |
+| DINOv3 ConvNeXt-B | `dinov3_convnext_base` | `transformers` | Classification, Detection, Segmentation |
+| DINOv3 ConvNeXt-L | `dinov3_convnext_large` | `transformers` | Classification, Detection, Segmentation |
+
+### Integration Notes
+
+- HuggingFace models return dict/dataclass outputs — the `BackboneWrapper` must extract the relevant feature tensors and reshape them to match the `(N, C, H, W)` convention expected by existing heads.
+- ViT backbones produce patch tokens — for classification the `[CLS]` token is used; for dense tasks (detection, segmentation) patch tokens are reshaped into a spatial feature map.
+- ConvNeXt backbones produce standard hierarchical feature maps compatible with FPN.
+- DINOv3 models use different normalization constants than ImageNet-pretrained torchvision models — the augmentation pipeline must adapt automatically based on the selected backbone source.
+- Frozen backbone mode is especially effective with DINOv3 due to strong self-supervised pretraining.
+
+### Acceptance Criteria
+
+- [ ] All 6 DINOv3 backbone variants are available in the architecture catalog
+- [ ] A classification experiment can be trained with a DINOv3-ViT backbone
+- [ ] A classification experiment can be trained with a DINOv3-ConvNeXt backbone
+- [ ] DINOv3-based models can be exported to ONNX and pass validation
+- [ ] HuggingFace weights are downloaded and cached correctly
+- [ ] DINOv3 backbones can be used for detection and segmentation tasks (when those tasks are active)
+
+---
+
+## Phase 23 — Anomaly Detection
 
 **Goal**: Add the anomaly detection task.
 
@@ -550,7 +599,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 23 — Regression
+## Phase 24 — Regression
 
 **Goal**: Add the regression task.
 
@@ -574,7 +623,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 24 — Oriented Object Detection
+## Phase 25 — Oriented Object Detection
 
 **Goal**: Add oriented object detection, extending the detection foundation.
 
@@ -599,7 +648,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 25 — Polish & Extras
+## Phase 26 — Polish & Extras
 
 **Goal**: Improve usability, add deferred features.
 
@@ -655,10 +704,11 @@ GROUP E — Additional Tasks  ── depend on Groups A–D
   ├── Phase 19 (Object Detection) ── introduces bbox handling
   ├── Phase 20 (Segmentation) ── introduces mask handling
   │     └── Phase 21 (Instance Seg) ── extends Phase 19 + 20
-  ├── Phase 22 (Anomaly Detection) ── independent
-  ├── Phase 23 (Regression) ── independent
-  ├── Phase 24 (Oriented OD) ── extends Phase 19
-  └── Phase 25 (Polish) ── can run in parallel with Phases 19–24
+  ├── Phase 22 (DINOv3 Models) ── extends backbone catalog; depends on Phase 8+
+  ├── Phase 23 (Anomaly Detection) ── independent
+  ├── Phase 24 (Regression) ── independent
+  ├── Phase 25 (Oriented OD) ── extends Phase 19
+  └── Phase 26 (Polish) ── can run in parallel with Phases 19–25
 ```
 
 ---

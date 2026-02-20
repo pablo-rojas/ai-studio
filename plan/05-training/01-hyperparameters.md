@@ -95,6 +95,36 @@ See individual task documents for available loss functions per task:
 }
 ```
 
+### Classification with DINOv3 Backbones (Phase 22)
+
+DINOv3 backbones benefit from different hyperparameter defaults due to their self-supervised pretraining:
+
+```json
+{
+  "optimizer": "adamw",
+  "learning_rate": 0.0001,
+  "weight_decay": 0.05,
+  "scheduler": "cosine",
+  "warmup_epochs": 5,
+  "batch_size": 32,
+  "batch_multiplier": 1,
+  "max_epochs": 30,
+  "early_stopping_patience": 10,
+  "loss": "cross_entropy",
+  "dropout": 0.1,
+  "pretrained": true,
+  "freeze_backbone": true
+}
+```
+
+**Key differences from torchvision defaults**:
+- **AdamW** optimizer (better for Transformers and modern ConvNets with weight decay decoupling).
+- **Lower learning rate** (0.0001 vs 0.001) — DINOv3 features are already well-optimized.
+- **Higher weight decay** (0.05) — standard for Transformer fine-tuning.
+- **Fewer epochs** (30 vs 50) — strong pretrained features converge faster.
+- **Backbone frozen by default** — self-supervised features are highly transferable; fine-tuning the full backbone is optional and may require even lower LR.
+- **Lower dropout** (0.1) — less regularization needed with frozen backbone.
+
 ### Anomaly Detection
 
 Anomaly detection uses a multi-stage student–teacher pipeline with **separate hyperparameters per stage**. This is a custom implementation (not based on torchvision), so defaults here are approximate and subject to change. See [02-anomaly-detection.md](../03-tasks/02-anomaly-detection.md) §10 for the authoritative defaults.

@@ -23,9 +23,9 @@ The studio covers the full lifecycle:
 | 19 | **Object Detection** | Locate objects with axis-aligned bounding boxes + class labels. |
 | 20 | **Segmentation** | Assign a class label to every pixel (semantic segmentation). |
 | 21 | **Instance Segmentation** | Like segmentation, but distinguish individual object instances. |
-| 22 | **Anomaly Detection** | Detect whether an image is normal or anomalous, optionally localize the anomaly. |
-| 23 | **Regression** | Predict one or more continuous numeric values from an image. |
-| 24 | **Oriented Object Detection** | Like object detection, but with rotated bounding boxes. |
+| 23 | **Anomaly Detection** | Detect whether an image is normal or anomalous, optionally localize the anomaly. |
+| 24 | **Regression** | Predict one or more continuous numeric values from an image. |
+| 25 | **Oriented Object Detection** | Like object detection, but with rotated bounding boxes. |
 
 ---
 
@@ -35,7 +35,7 @@ The studio covers the full lifecycle:
 |-------|-----------|------|
 | **Deep Learning** | PyTorch | Tensor ops, autograd, model definition |
 | **Training Framework** | PyTorch Lightning | Training loop, callbacks, multi-GPU, logging |
-| **Model Zoo** | torchvision | Pretrained backbones (ResNet, EfficientNet, MobileNet, etc.) |
+| **Model Zoo** | torchvision + HuggingFace Transformers | Pretrained backbones (ResNet, EfficientNet, MobileNet, DINOv3, etc.) |
 | **Web Framework** | FastAPI | REST API, request validation (Pydantic), background tasks |
 | **Server** | uvicorn | ASGI server to run the FastAPI application |
 | **Templating** | Jinja2 | Server-rendered HTML pages |
@@ -104,7 +104,7 @@ See [02-data-layer/00-storage-layout.md](02-data-layer/00-storage-layout.md) for
 | 1 | Monolithic FastAPI + Jinja2 | Single deployment, no frontend build tooling, fast iteration. |
 | 2 | Filesystem + JSON (no database) | Zero external dependencies, portable, simple to inspect and version-control. |
 | 3 | Phased task rollout, classification first | Limits initial scope; architecture stabilizes before adding complexity. |
-| 4 | Predefined model catalog (not plugin system) | Curated torchvision architectures; simpler, fewer failure modes. |
+| 4 | Predefined model catalog (not plugin system) | Curated torchvision + HuggingFace architectures; simpler, fewer failure modes. |
 | 5 | Import-only annotation (initially) | Avoids building a full annotation tool in early phases. |
 | 6 | ONNX-first export with extensible format registry | Covers the most common deployment target; TensorRT/OpenVINO/PyTorch added later. |
 | 7 | HTMX + Alpine.js for interactivity | Minimal JS footprint, progressive enhancement, no SPA complexity. |

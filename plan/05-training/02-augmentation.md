@@ -84,6 +84,14 @@ For augmentations not available in torchvision v2 (e.g., `GridDistortion`, `Elas
 | `ToImage` | — | PIL / ndarray → Tensor (torchvision transforms v2) |
 | `Normalize` | `mean, std` | Channel-wise normalization |
 
+### DINOv3-Specific Preprocessing (Phase 22)
+
+DINOv3 models may use different normalization stats and input resolutions than ImageNet-pretrained torchvision models. When a DINOv3 backbone is selected:
+
+- **Normalization stats** are automatically read from the HuggingFace preprocessor config (typically close to but not identical to ImageNet stats).
+- **Input resolution** should be a multiple of the ViT patch size (14): e.g., 224, 378, 518. For DINOv3 ConvNeXt, standard resolutions (224, 384) work well.
+- The augmentation pipeline builder auto-adjusts `Normalize` and `Resize` parameters based on the selected backbone source.
+
 ### Advanced (future)
 
 | Name | Notes |

@@ -82,7 +82,9 @@ class AIStudioModule(pl.LightningModule):
         scheduler = build_scheduler(optimizer, self.scheduler_config)
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 ```
+### HuggingFace / DINOv3 Backbone Note (Phase 22)
 
+When using DINOv3 backbones from HuggingFace Transformers, the model architecture is composed as `BackboneWrapper(HF model) + Head`. The `BackboneWrapper` extracts feature tensors from the HuggingFace model's output dict/dataclass and converts them to standard `(N, C, H, W)` format. The `LightningModule` training/validation steps remain unchanged — the wrapper abstraction ensures the model's `forward()` method accepts image tensors and returns logits as expected.
 ### Detection/Instance Segmentation Variation
 
 torchvision detection models compute losses internally. The training step differs:

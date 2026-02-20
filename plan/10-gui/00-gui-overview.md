@@ -12,7 +12,7 @@ This document describes the overall GUI architecture, navigation, theming, and s
 | Partial updates | **HTMX** | Swap page fragments without full reload |
 | Client logic | **Alpine.js** | Lightweight reactive state (modals, toggles, form binding) |
 | Charts | **Chart.js** | Loss curves, metric visualizations |
-| CSS | **Tailwind CSS** (via CDN) or custom CSS | Responsive utility-first styling |
+| CSS | **Tailwind CSS** (Play CDN `<script>` tag) + custom CSS | Responsive utility-first styling |
 | Icons | **Heroicons** or **Lucide** | SVG icon set |
 
 No SPA framework. Every page is a full Jinja2 template; interactivity is added progressively with HTMX and Alpine.js.
@@ -113,7 +113,7 @@ app/templates/
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Studio — {% block title %}{% endblock %}</title>
-    <link rel="stylesheet" href="/static/css/tailwind.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/app.css">
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/alpine.min.js" defer></script>

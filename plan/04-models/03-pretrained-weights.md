@@ -15,8 +15,7 @@ Most models are initialized with **pretrained ImageNet weights** from torchvisio
 | Source | Models | Mechanism |
 |--------|--------|-----------|
 | **torchvision weights API** | All torchvision models | `weights=ModelName_Weights.DEFAULT` |
-| **torch hub cache** | Downloaded automatically | Stored in `~/.cache/torch/hub/checkpoints/` |
-
+| **torch hub cache** | Downloaded automatically | Stored in `~/.cache/torch/hub/checkpoints/` || **HuggingFace Transformers** | DINOv3 ViT, DINOv3 ConvNeXt | `AutoModel.from_pretrained("facebook/dinov3-...")` |
 ### torchvision Weights API (v2)
 
 torchvision >= 0.13 uses a typed weights enum:
@@ -34,13 +33,30 @@ model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
 model = resnet50(weights=None)
 ```
 
+### HuggingFace Weights
+
+DINOv3 models are loaded via HuggingFace Transformers:
+
+```python
+from transformers import AutoModel
+
+# DINOv3 ViT-Base
+model = AutoModel.from_pretrained("facebook/dinov3-vitb14")
+
+# DINOv3 ConvNeXt-Base
+model = AutoModel.from_pretrained("facebook/dinov3-convnext-base")
+```
+
+Weights are cached at `~/.cache/huggingface/hub/` and shared across projects.
+
 ---
 
 ## 3. Cache Management
 
 - torchvision downloads weights on first use and caches them at `~/.cache/torch/hub/checkpoints/`.
-- This cache is **shared** across all projects and persists across restarts.
-- No explicit cache cleanup is needed — the total size of common weights is ~1-2 GB.
+- HuggingFace downloads weights on first use and caches them at `~/.cache/huggingface/hub/`.
+- These caches are **shared** across all projects and persist across restarts.
+- No explicit cache cleanup is needed — the total size of common weights is ~1-2 GB for torchvision, ~2-5 GB for HuggingFace DINOv3 models.
 - If internet access is unavailable, models must have been previously cached. A clear error message is shown if weights cannot be downloaded.
 
 ### Optional: Local Weight Mirror
@@ -80,6 +96,8 @@ def apply_weight_config(model: nn.Module, config: ModelConfig):
 ```
 
 The `is_head_parameter()` function checks if a parameter name belongs to the head (e.g., `fc.`, `classifier.`, `roi_heads.`, `mask_predictor.`).
+
+For DINOv3 models, backbone freezing is especially effective because the self-supervised pretraining produces highly transferable features. Freezing the DINOv3 backbone and training only the head is recommended for small datasets.
 
 ---
 

@@ -1,6 +1,6 @@
 # Tasks — Oriented Object Detection
 
-**Phase**: 24
+**Phase**: 25
 
 ---
 

@@ -28,12 +28,12 @@ Each task has a phase number. Tasks with phase > current release phase are hidde
 | Task | Phase | Status |
 |------|-------|--------|
 | Classification | 8 | **Active** |
-| Anomaly Detection | 22 | Planned |
+| Anomaly Detection | 23 | Planned |
 | Object Detection | 19 | Planned |
-| Oriented Object Detection | 24 | Planned |
+| Oriented Object Detection | 25 | Planned |
 | Segmentation | 20 | Planned |
 | Instance Segmentation | 21 | Planned |
-| Regression | 23 | Planned |
+| Regression | 24 | Planned |
 
 Configuration: `ACTIVE_PHASES = [1]` initially, incremented as phases are implemented.
 

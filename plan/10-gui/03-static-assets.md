@@ -9,7 +9,6 @@ This document describes the static files served by the application.
 ```
 app/static/
 ├── css/
-│   ├── tailwind.min.css        # Tailwind CSS (CDN fallback: local copy)
 │   └── app.css                 # Custom styles (overrides, animations)
 ├── js/
 │   ├── htmx.min.js             # HTMX library (~14 KB gzipped)
@@ -35,15 +34,15 @@ app/static/
 
 ### Tailwind CSS
 
-Tailwind provides utility classes. Options for inclusion:
+Tailwind is loaded via the **Play CDN `<script>` tag** in `base.html`:
 
-| Option | Pros | Cons |
-|--------|------|------|
-| **CDN** (`<script src="https://cdn.tailwindcss.com">`) | Zero build step, always latest | Requires internet, larger payload |
-| **Pre-built CSS** (local file) | Offline, smaller | Needs build step for customization |
-| **Tailwind CLI** (build step) | Full customization, purging | Requires Node.js at build time |
+```html
+<script src="https://cdn.tailwindcss.com"></script>
+```
 
-**Recommendation**: Start with CDN for development, switch to pre-built CSS for production.
+This JIT-compiles Tailwind utility classes directly in the browser — no build step, no Node.js, no local CSS file. The browser fetches the script once (~300 KB) and caches it. Requires internet in the browser, which is fine for a local-only development tool.
+
+> **Do NOT** add a `tailwind.min.css` file to `app/static/css/`. The Play CDN replaces it entirely.
 
 ### `app.css`
 
@@ -182,9 +181,9 @@ function drawBoundingBoxes(canvas, boxes, options = {}) {
 | HTMX | 2.0.x | ~14 KB | https://unpkg.com/htmx.org |
 | Alpine.js | 3.14.x | ~8 KB | https://unpkg.com/alpinejs |
 | Chart.js | 4.4.x | ~65 KB | https://cdn.jsdelivr.net/npm/chart.js |
-| Tailwind CSS | 3.4.x | ~300 KB (CDN) | https://cdn.tailwindcss.com |
+| Tailwind CSS | 4.x (Play CDN) | ~300 KB (cached) | https://cdn.tailwindcss.com |
 
-Total JS payload: **~87 KB gzipped** (excluding Tailwind CSS).
+Total vendored JS payload: **~87 KB gzipped** (Tailwind loaded separately via Play CDN).
 
 ---
 

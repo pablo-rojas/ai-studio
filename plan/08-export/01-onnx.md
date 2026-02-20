@@ -73,11 +73,19 @@ This allows running inference with any batch size.
 
 The input resolution for export should match the training resolution:
 
-- **Classification/Regression/Anomaly**: typically 224×224.
+- **Classification/Regression/Anomaly**: typically 224×224 (or 518×518 for DINOv3 ViT models).
 - **Detection**: typically 640×640 or 800×800.
 - **Segmentation**: typically 512×512.
 
 The GUI pre-populates the input resolution from the experiment's augmentation config (the `Resize` transform size).
+
+### DINOv3 Models (HuggingFace Transformers)
+
+DINOv3-based models (ViT and ConvNeXt) can be exported to ONNX. Key considerations:
+
+- **ViT attention**: The self-attention mechanism in DINOv3 ViT models exports correctly to ONNX with opset ≥ 14 (required for `Einsum` and `LayerNormalization` ops).
+- **Fixed vs. dynamic resolution**: DINOv3 ViT models work best at fixed input resolutions that are multiples of the patch size (14). Dynamic spatial axes may not be supported.
+- **HuggingFace export utilities**: For complex models, `optimum.exporters.onnx` from the HuggingFace `optimum` library can be used as a fallback if `torch.onnx.export` encounters issues.
 
 ---
 

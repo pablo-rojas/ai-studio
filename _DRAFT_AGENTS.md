@@ -192,7 +192,7 @@ api/ ──► core/ ──► storage/
 - **HTMX** for partial page updates (fragments in `app/templates/fragments/`).
 - **Alpine.js** for client-side reactivity (modals, toggles, form binding).
 - **Chart.js** for charts and visualizations.
-- **Tailwind CSS** for styling (via CDN or vendored).
+- **Tailwind CSS** for styling (via Play CDN `<script>` tag — no build step, no local CSS file).
 - All JS is vendored in `app/static/js/` — no npm, no bundler, no build step.
 - Templates extend `base.html` which provides the top bar + sidebar layout.
 - Reusable UI pieces go in `app/templates/components/` as Jinja2 macros.

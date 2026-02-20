@@ -49,6 +49,12 @@ Any backbone + FC classification head:
 | EfficientNet-B3 | 12.2M | Higher accuracy |
 | MobileNetV3-Small | 2.5M | Edge-optimized |
 | MobileNetV3-Large | 5.5M | Edge-optimized, better accuracy |
+| DINOv3 ViT-S/14 | 22M | Self-supervised ViT, strong transfer (Phase 22) |
+| DINOv3 ViT-B/14 | 86M | Self-supervised ViT, higher capacity (Phase 22) |
+| DINOv3 ViT-L/14 | 304M | Self-supervised ViT, highest accuracy (Phase 22) |
+| DINOv3 ConvNeXt-S | 50M | Self-supervised ConvNeXt (Phase 22) |
+| DINOv3 ConvNeXt-B | 89M | Self-supervised ConvNeXt, mid-range (Phase 22) |
+| DINOv3 ConvNeXt-L | 198M | Self-supervised ConvNeXt, high capacity (Phase 22) |
 
 ### Head: FC Classifier
 

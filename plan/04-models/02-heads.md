@@ -36,6 +36,8 @@ class ClassificationHead(nn.Module):
 
 **Output**: `(N, num_classes)` logits. Apply `softmax` for probabilities at inference.
 
+**DINOv3 ViT note**: When using a DINOv3 ViT backbone, the classification head receives the `[CLS]` token embedding `(N, D)` instead of spatial feature maps. The `AdaptiveAvgPool2d` step is skipped — the `[CLS]` token already represents a global image feature. The `BackboneWrapper` handles this transparently.
+
 ### 2.2 Anomaly Detection — Student–Teacher Framework (No Traditional Head)
 
 Anomaly detection uses the **Uninformed Students** approach (Bergmann et al., CVPR 2020) — a student–teacher framework that replaces a traditional head entirely. There is no single classification head; instead, anomaly scores are derived from the **discrepancy** between a teacher network and an ensemble of student networks.
