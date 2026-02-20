@@ -2,6 +2,14 @@
 
 from app.schemas.dataset import DatasetImportRequest, DatasetMetadata
 from app.schemas.project import ProjectCreate, ProjectRename, ProjectResponse
+from app.schemas.split import (
+    SplitCounts,
+    SplitCreateRequest,
+    SplitPreviewRequest,
+    SplitPreviewResponse,
+    SplitRatios,
+    SplitSummary,
+)
 
 __all__ = [
     "DatasetImportRequest",
@@ -9,4 +17,10 @@ __all__ = [
     "ProjectCreate",
     "ProjectRename",
     "ProjectResponse",
+    "SplitCounts",
+    "SplitCreateRequest",
+    "SplitPreviewRequest",
+    "SplitPreviewResponse",
+    "SplitRatios",
+    "SplitSummary",
 ]
