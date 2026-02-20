@@ -5,9 +5,12 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from PIL import Image
 
+from app.core.dataset_service import DatasetService
 from app.core.project_service import ProjectService
 from app.main import create_app
+from app.schemas.dataset import DatasetImportRequest, DatasetMetadata
 from app.schemas.project import ProjectCreate, ProjectResponse
 from app.storage.json_store import JsonStore
 from app.storage.paths import WorkspacePaths
@@ -45,10 +48,28 @@ def sample_project(project_service: ProjectService) -> ProjectResponse:
 @pytest.fixture
 def sample_dataset(
     sample_project: ProjectResponse,
-    project_service: ProjectService,
-) -> dict[str, Path]:
-    """Provide a placeholder dataset fixture for future phases."""
-    return {
-        "project_id": sample_project.id,
-        "dataset_dir": project_service.paths.dataset_dir(sample_project.id),
-    }
+    workspace: Path,
+) -> DatasetMetadata:
+    """Import and return a small sample dataset."""
+    source_root = workspace.parent / "source_dataset"
+    cat_dir = source_root / "cat"
+    dog_dir = source_root / "dog"
+    cat_dir.mkdir(parents=True, exist_ok=True)
+    dog_dir.mkdir(parents=True, exist_ok=True)
+
+    _create_test_image(cat_dir / "cat_1.png", size=(240, 180), color=(220, 120, 120))
+    _create_test_image(dog_dir / "dog_1.png", size=(300, 200), color=(120, 120, 220))
+
+    service = DatasetService(paths=WorkspacePaths(root=workspace), store=JsonStore())
+    return service.import_dataset(
+        sample_project.id,
+        DatasetImportRequest(
+            source_path=str(source_root),
+            source_format="image_folders",
+        ),
+    )
+
+
+def _create_test_image(path: Path, *, size: tuple[int, int], color: tuple[int, int, int]) -> None:
+    image = Image.new("RGB", size, color)
+    image.save(path)

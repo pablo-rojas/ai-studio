@@ -5,6 +5,7 @@ pydantic>=2.6
 uvicorn[standard]>=0.29
 
 # --- Deep learning ---
+pillow>=10.0
 torch>=2.2
 torchvision>=0.17
 pytorch-lightning>=2.2
