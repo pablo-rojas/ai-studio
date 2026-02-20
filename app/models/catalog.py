@@ -42,7 +42,7 @@ TaskType = Literal[
     "regression",
 ]
 
-ACTIVE_PHASES: tuple[int, ...] = tuple(range(1, 9))
+ACTIVE_PHASES: tuple[int, ...] = tuple(range(1, 10))
 
 TASK_PHASE_BY_TYPE: dict[TaskType, int] = {
     "classification": 8,

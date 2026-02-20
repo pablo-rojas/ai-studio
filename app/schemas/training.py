@@ -38,6 +38,7 @@ class HyperparameterConfig(BaseModel):
     scheduler: SchedulerType = "cosine"
     warmup_epochs: int = Field(default=5, ge=0, le=1000)
     step_size: int = Field(default=10, ge=1, le=1000)
+    milestones: list[int] = Field(default_factory=list)
     gamma: float = Field(default=0.1, gt=0, lt=1)
     poly_power: float = Field(default=0.9, gt=0)
     batch_size: int = Field(default=32, ge=1, le=256)
@@ -47,6 +48,15 @@ class HyperparameterConfig(BaseModel):
     loss: ClassificationLossType = "cross_entropy"
     label_smoothing: float = Field(default=0.0, ge=0.0, le=0.5)
     dropout: float = Field(default=0.2, ge=0.0, le=0.9)
+
+    @field_validator("milestones")
+    @classmethod
+    def validate_milestones(cls, value: list[int]) -> list[int]:
+        """Normalize scheduler milestones as sorted positive unique integers."""
+        unique = sorted({milestone for milestone in value if milestone > 0})
+        if len(unique) != len(value):
+            raise ValueError("milestones must contain unique positive integers.")
+        return unique
 
 
 class AugmentationStep(BaseModel):
