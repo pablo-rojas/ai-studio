@@ -7,6 +7,7 @@ from app.training.optimizers import build_optimizer
 from app.training.schedulers import build_scheduler
 from app.training.subprocess_runner import TrainingProcessHandle, TrainingSubprocessRunner
 from app.training.trainer_factory import build_trainer, resolve_hardware
+from app.training.worker import run_experiment_training
 
 __all__ = [
     "AIStudioModule",
@@ -21,5 +22,6 @@ __all__ = [
     "build_scheduler",
     "build_trainer",
     "list_losses",
+    "run_experiment_training",
     "resolve_hardware",
 ]

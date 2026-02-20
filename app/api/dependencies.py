@@ -5,6 +5,7 @@ from fastapi import Request
 from app.core.dataset_service import DatasetService
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
+from app.core.training_service import TrainingService
 
 
 def get_project_service(request: Request) -> ProjectService:
@@ -20,3 +21,8 @@ def get_dataset_service(request: Request) -> DatasetService:
 def get_split_service(request: Request) -> SplitService:
     """Resolve the shared split service instance from app state."""
     return request.app.state.split_service
+
+
+def get_training_service(request: Request) -> TrainingService:
+    """Resolve the shared training service instance from app state."""
+    return request.app.state.training_service

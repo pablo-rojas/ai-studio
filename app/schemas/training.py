@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -7,6 +9,30 @@ from pydantic import BaseModel, Field, field_validator
 OptimizerType = Literal["adam", "adamw", "sgd"]
 SchedulerType = Literal["cosine", "step", "multistep", "poly", "none"]
 ClassificationLossType = Literal["cross_entropy", "focal", "label_smoothing_cross_entropy"]
+ExperimentStatus = Literal["created", "pending", "training", "completed", "failed", "cancelled"]
+PrecisionType = Literal["32", "16-mixed", "bf16-mixed"]
+
+_EXPERIMENT_ID_PATTERN = re.compile(r"^exp-[0-9a-f]{8}$")
+_EXPERIMENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,79}$")
+_DEVICE_PATTERN = re.compile(r"^(cpu|gpu|cuda|gpu:[0-9]+|cuda:[0-9]+)$")
+
+
+def _normalize_name(value: str) -> str:
+    normalized = " ".join(value.strip().split())
+    if not normalized:
+        raise ValueError("Experiment name cannot be empty.")
+    if not _EXPERIMENT_NAME_PATTERN.fullmatch(normalized):
+        raise ValueError(
+            "Experiment name must use only letters, numbers, spaces, underscores, and hyphens."
+        )
+    return normalized
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = " ".join(value.strip().split())
+    return normalized or None
 
 
 class ModelConfig(BaseModel):
@@ -88,3 +114,180 @@ class TrainingConfig(BaseModel):
     model: ModelConfig
     hyperparameters: HyperparameterConfig
     augmentations: AugmentationConfig
+
+
+class HardwareConfig(BaseModel):
+    """Hardware-related training settings persisted per experiment."""
+
+    selected_devices: list[str] = Field(default_factory=lambda: ["cpu"])
+    precision: PrecisionType = "32"
+
+    @field_validator("selected_devices")
+    @classmethod
+    def validate_selected_devices(cls, value: list[str]) -> list[str]:
+        """Normalize and validate selected device labels."""
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for device in value:
+            clean = device.strip().lower()
+            if not clean:
+                continue
+            if not _DEVICE_PATTERN.fullmatch(clean):
+                raise ValueError(f"Unsupported device label '{device}'.")
+            if clean in seen:
+                continue
+            seen.add(clean)
+            normalized.append(clean)
+        if not normalized:
+            return ["cpu"]
+        return normalized
+
+
+class ExperimentError(BaseModel):
+    """Structured error payload stored for failed experiments."""
+
+    type: str = Field(min_length=1, max_length=120)
+    message: str = Field(min_length=1, max_length=4000)
+    traceback: str = Field(min_length=1)
+
+
+class ExperimentSummary(BaseModel):
+    """Experiment list item persisted in `experiments_index.json`."""
+
+    id: str = Field(pattern=_EXPERIMENT_ID_PATTERN.pattern)
+    name: str = Field(min_length=1, max_length=80)
+    created_at: datetime
+    status: ExperimentStatus = "created"
+    best_metric_value: float | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        """Normalize experiment names."""
+        return _normalize_name(value)
+
+
+class ExperimentsIndex(BaseModel):
+    """Top-level index file payload for project experiments."""
+
+    version: str = Field(default="1.0")
+    experiments: list[ExperimentSummary] = Field(default_factory=list)
+
+
+class ExperimentRecord(BaseModel):
+    """Canonical experiment record stored in `experiment.json`."""
+
+    id: str = Field(pattern=_EXPERIMENT_ID_PATTERN.pattern)
+    name: str = Field(min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=280)
+    created_at: datetime
+    status: ExperimentStatus = "created"
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    split_name: str = Field(min_length=1, max_length=120)
+    model: ModelConfig
+    hyperparameters: HyperparameterConfig
+    augmentations: AugmentationConfig
+    hardware: HardwareConfig = Field(default_factory=HardwareConfig)
+    best_epoch: int | None = Field(default=None, ge=1)
+    best_checkpoint_path: str | None = None
+    best_metric: dict[str, float] | None = None
+    final_metrics: dict[str, float] | None = None
+    error: ExperimentError | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        """Normalize experiment names."""
+        return _normalize_name(value)
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str | None) -> str | None:
+        """Normalize optional experiment descriptions."""
+        return _normalize_optional_text(value)
+
+    @field_validator("split_name")
+    @classmethod
+    def normalize_split_name(cls, value: str) -> str:
+        """Normalize split names."""
+        normalized = " ".join(value.strip().split())
+        if not normalized:
+            raise ValueError("split_name cannot be empty.")
+        return normalized
+
+
+class ExperimentCreate(BaseModel):
+    """Create payload for a new experiment."""
+
+    name: str | None = Field(default=None, max_length=80)
+    description: str | None = Field(default=None, max_length=280)
+    split_name: str | None = Field(default=None, max_length=120)
+    model: ModelConfig | None = None
+    hyperparameters: HyperparameterConfig | None = None
+    augmentations: AugmentationConfig | None = None
+    hardware: HardwareConfig | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        """Normalize optional experiment names."""
+        if value is None:
+            return None
+        return _normalize_name(value)
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str | None) -> str | None:
+        """Normalize optional descriptions."""
+        return _normalize_optional_text(value)
+
+    @field_validator("split_name")
+    @classmethod
+    def normalize_split_name(cls, value: str | None) -> str | None:
+        """Normalize optional split names."""
+        if value is None:
+            return None
+        normalized = " ".join(value.strip().split())
+        return normalized or None
+
+
+class ExperimentUpdate(BaseModel):
+    """Patch payload for editable experiment configuration fields."""
+
+    name: str | None = Field(default=None, max_length=80)
+    description: str | None = Field(default=None, max_length=280)
+    split_name: str | None = Field(default=None, max_length=120)
+    model: ModelConfig | None = None
+    hyperparameters: HyperparameterConfig | None = None
+    augmentations: AugmentationConfig | None = None
+    hardware: HardwareConfig | None = None
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        """Normalize optional experiment names."""
+        if value is None:
+            return None
+        return _normalize_name(value)
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str | None) -> str | None:
+        """Normalize optional descriptions."""
+        return _normalize_optional_text(value)
+
+    @field_validator("split_name")
+    @classmethod
+    def normalize_split_name(cls, value: str | None) -> str | None:
+        """Normalize optional split names."""
+        if value is None:
+            return None
+        normalized = " ".join(value.strip().split())
+        return normalized or None
+
+
+class ExperimentMetrics(BaseModel):
+    """Per-epoch metrics persisted in `metrics.json`."""
+
+    epochs: list[dict[str, float | int]] = Field(default_factory=list)

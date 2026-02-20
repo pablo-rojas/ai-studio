@@ -51,3 +51,24 @@ class SplitNotFoundError(NotFoundError):
     """Raised when a split name cannot be resolved."""
 
     error_code = "SPLIT_NOT_FOUND"
+
+
+class TrainingInProgressError(ConflictError):
+    """Raised when another training process is already running."""
+
+    error_code = "TRAINING_IN_PROGRESS"
+
+    def __init__(self) -> None:
+        super().__init__("An experiment is already training.")
+
+
+class ExperimentNotFoundError(NotFoundError):
+    """Raised when an experiment cannot be resolved."""
+
+    error_code = "EXPERIMENT_NOT_FOUND"
+
+
+class CheckpointNotFoundError(NotFoundError):
+    """Raised when a required checkpoint file does not exist."""
+
+    error_code = "CHECKPOINT_NOT_FOUND"

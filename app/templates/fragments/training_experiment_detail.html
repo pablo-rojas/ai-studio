@@ -1,0 +1,24 @@
+<section id="training-experiment-detail" class="space-y-3 rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
+  <div class="flex items-center justify-between gap-3">
+    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ experiment.name }}</h3>
+    <span class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ experiment.status }}</span>
+  </div>
+  <dl class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div>
+      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment ID</dt>
+      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.id }}</dd>
+    </div>
+    <div>
+      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Split</dt>
+      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.split_name }}</dd>
+    </div>
+    <div>
+      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Backbone</dt>
+      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.model.backbone }}</dd>
+    </div>
+    <div>
+      <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Max Epochs</dt>
+      <dd class="text-slate-800 dark:text-slate-100">{{ experiment.hyperparameters.max_epochs }}</dd>
+    </div>
+  </dl>
+</section>
