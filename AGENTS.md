@@ -56,6 +56,23 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 The workspace data folder (`./workspace`) is created automatically on first launch. Do not commit the `workspace/` folder.
 
+### Virtual Environment — Important for Agents
+
+**The `.venv` is NOT activated automatically in agent/terminal sessions.** All Python tools (`python`, `pytest`, `ruff`, `uvicorn`, etc.) must be invoked using their full path inside `.venv` to ensure the correct interpreter and installed packages are used.
+
+Use these paths on Linux/macOS:
+
+| Tool | Command to use |
+|------|---------------|
+| Python interpreter | `.venv/bin/python` |
+| pip | `.venv/bin/pip` |
+| pytest | `.venv/bin/pytest` |
+| ruff | `.venv/bin/ruff` |
+| uvicorn | `.venv/bin/uvicorn` |
+
+**Never assume `python`, `pytest`, `ruff`, or `uvicorn` on `PATH` are the venv versions.** Always prefix with `.venv/bin/` (or activate the venv first with `source .venv/bin/activate` in the same shell session).
+
+
 ---
 
 ## Project Structure
@@ -96,7 +113,7 @@ This project is built in **25 phases**, always in **backend → API → GUI** or
 
 > **Update this line when starting a new phase:**
 >
-> `CURRENT_PHASE = 4`
+> `CURRENT_PHASE = 5`
 
 Only implement features belonging to the current phase. Do not jump ahead. Each phase must be fully complete (all acceptance criteria met, tests passing) before moving on.
 
@@ -203,8 +220,8 @@ api/ ──► core/ ──► storage/
 
 - **Ruff** for linting and formatting. Run before every commit:
   ```bash
-  ruff check app/ tests/ --fix
-  ruff format app/ tests/
+  .venv/bin/ruff check app/ tests/ --fix
+  .venv/bin/ruff format app/ tests/
   ```
 - Type hints on all function signatures. Use `from __future__ import annotations` in every file.
 - Pydantic v2 models for all data validation and serialization.
@@ -321,7 +338,7 @@ When starting a phase, follow this sequence:
 9. **Manually test end-to-end** via `uvicorn app.main:app --reload`.
 10. **Verify all acceptance criteria** from `plan/11-roadmap.md`.
 11. **Run the full test suite** and ensure everything passes.
-12. **Lint and format**: `ruff check app/ tests/ --fix && ruff format app/ tests/`
+12. **Lint and format**: `.venv/bin/ruff check app/ tests/ --fix && .venv/bin/ruff format app/ tests/`
 
 ---
 
@@ -444,12 +461,12 @@ Use `sklearn.model_selection.train_test_split` with `stratify` for splits.
 
 | Command | Purpose |
 |---------|---------|
-| `uvicorn app.main:app --reload` | Start dev server with hot reload |
-| `pytest tests/ -v` | Run full test suite |
-| `pytest tests/ --cov=app` | Run tests with coverage |
-| `ruff check app/ tests/ --fix` | Lint and auto-fix |
-| `ruff format app/ tests/` | Format code |
-| `python -c "import torch; print(torch.cuda.is_available())"` | Check GPU availability |
+| `.venv/bin/uvicorn app.main:app --reload` | Start dev server with hot reload |
+| `.venv/bin/pytest tests/ -v` | Run full test suite |
+| `.venv/bin/pytest tests/ --cov=app` | Run tests with coverage |
+| `.venv/bin/ruff check app/ tests/ --fix` | Lint and auto-fix |
+| `.venv/bin/ruff format app/ tests/` | Format code |
+| `.venv/bin/python -c "import torch; print(torch.cuda.is_available())"` | Check GPU availability |
 
 ---
 

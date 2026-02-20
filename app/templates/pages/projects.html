@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+{% set enabled_task = "classification" %}
+{% set disabled_tasks = [
+  ("anomaly_detection", "Anomaly Detection"),
+  ("object_detection", "Object Detection"),
+  ("oriented_object_detection", "Oriented Object Detection"),
+  ("segmentation", "Segmentation"),
+  ("instance_segmentation", "Instance Segmentation"),
+  ("regression", "Regression"),
+] %}
+
+<section x-data="{ modalOpen: false, selectedTask: '{{ enabled_task }}' }" class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Projects</h1>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Create and manage AI Studio projects.</p>
+    </div>
+    <button
+      type="button"
+      @click="modalOpen = true"
+      class="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+    >
+      New Project
+    </button>
+  </div>
+
+  {% include "fragments/project_list.html" %}
+
+  <div
+    x-show="modalOpen"
+    x-cloak
+    class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4"
+    @click.self="modalOpen = false"
+  >
+    <div class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:shadow-slate-950/40">
+      <div class="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Create New Project</h2>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Pick a name and one task type.</p>
+        </div>
+        <button
+          type="button"
+          class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          @click="modalOpen = false"
+        >
+          Close
+        </button>
+      </div>
+
+      <form
+        hx-post="/api/projects"
+        hx-target="#project-grid"
+        hx-swap="outerHTML"
+        hx-on::after-request="if (event.detail.successful) { modalOpen = false; $el.reset(); selectedTask = '{{ enabled_task }}'; }"
+        class="space-y-5"
+      >
+        <input type="hidden" name="task" :value="selectedTask">
+        <label class="block space-y-2">
+          <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Name</span>
+          <input
+            type="text"
+            name="name"
+            required
+            maxlength="80"
+            placeholder="My Project"
+            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-blue-500 focus:ring dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          >
+        </label>
+
+        <div class="space-y-2">
+          <p class="text-sm font-medium text-slate-900 dark:text-slate-100">Task</p>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              @click="selectedTask = '{{ enabled_task }}'"
+              :class="selectedTask === '{{ enabled_task }}' ? 'border-blue-500 bg-blue-50 text-blue-900 dark:border-blue-400 dark:bg-blue-500/20 dark:text-blue-100' : 'border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'"
+              class="rounded-lg border p-3 text-left text-sm font-medium transition"
+            >
+              Classification
+            </button>
+            {% for task_key, task_label in disabled_tasks %}
+            <button
+              type="button"
+              disabled
+              class="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-500"
+            >
+              <span class="block font-medium">{{ task_label }}</span>
+              <span class="mt-1 block text-xs uppercase tracking-wide text-amber-700 dark:text-amber-400">Coming Soon</span>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            @click="modalOpen = false"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+          >
+            Create
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

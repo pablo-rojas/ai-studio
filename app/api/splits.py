@@ -19,16 +19,18 @@ SplitServiceDep = Annotated[SplitService, Depends(get_split_service)]
 def _render_split_list_fragment(request: Request, splits: list[dict[str, Any]]):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
+        request,
         "fragments/split_list.html",
-        {"request": request, "splits": splits},
+        {"splits": splits},
     )
 
 
 def _render_split_preview_fragment(request: Request, preview: dict[str, Any]):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
+        request,
         "fragments/split_preview.html",
-        {"request": request, "preview": preview},
+        {"preview": preview},
     )
 
 

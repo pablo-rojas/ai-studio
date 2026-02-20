@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api import datasets, projects, splits
+from app.api import datasets, pages, projects, splits
 from app.config import Settings, get_settings
 from app.core.dataset_service import DatasetService
 from app.core.exceptions import AIStudioError
@@ -51,8 +51,9 @@ def _render_hx_error(
 ):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
+        request,
         "fragments/error_toast.html",
-        {"request": request, "error_message": message},
+        {"error_message": message},
         status_code=status_code,
     )
 
@@ -142,6 +143,7 @@ def create_app(
     app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
     app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
     app.include_router(splits.router, prefix="/api/splits", tags=["splits"])
+    app.include_router(pages.router, tags=["pages"])
 
     _register_exception_handlers(app)
     return app

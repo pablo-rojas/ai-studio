@@ -30,16 +30,18 @@ _CHUNK_SIZE_BYTES = 1024 * 1024
 def _render_dataset_summary_fragment(request: Request, dataset: dict[str, Any]):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
+        request,
         "fragments/dataset_summary.html",
-        {"request": request, "dataset": dataset},
+        {"dataset": dataset},
     )
 
 
 def _render_dataset_images_fragment(request: Request, listing: dict[str, Any]):
     templates: Jinja2Templates = request.app.state.templates
     return templates.TemplateResponse(
+        request,
         "fragments/dataset_image_list.html",
-        {"request": request, "listing": listing},
+        {"listing": listing},
     )
 
 

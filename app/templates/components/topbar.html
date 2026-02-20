@@ -1,0 +1,31 @@
+{% set task_labels = {
+  "classification": "Classification",
+  "anomaly_detection": "Anomaly Detection",
+  "object_detection": "Object Detection",
+  "oriented_object_detection": "Oriented Object Detection",
+  "segmentation": "Segmentation",
+  "instance_segmentation": "Instance Segmentation",
+  "regression": "Regression",
+} %}
+<header class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+  <div class="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-6">
+    <a href="/projects" class="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">AI Studio</a>
+    <div class="flex items-center gap-3">
+      {% if project %}
+      <a href="/projects" class="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100">
+        {{ project.name }}
+      </a>
+      <span class="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-500/20 dark:text-blue-200">
+        {{ task_labels.get(project.task, project.task.replace("_", " ") | title) }}
+      </span>
+      {% endif %}
+      <button
+        id="theme-toggle"
+        type="button"
+        class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+      >
+        <span id="theme-toggle-label">Dark mode</span>
+      </button>
+    </div>
+  </div>
+</header>
