@@ -327,23 +327,23 @@ def sample_dataset(sample_project):
 
 When starting a phase, follow this sequence:
 
-0. **Run the full test suite** before writing any code. This establishes a clean baseline so that any test failures introduced later can be attributed to the new phase's changes.
+1. **Run the full test suite** before writing any code. This establishes a clean baseline so that any test failures introduced later can be attributed to the new phase's changes.
    ```bash
    .venv/bin/pytest tests/ -v
    ```
-   If existing tests fail before you start, stop and notify the user.
-1. **Read the plan.** Open `plan/11-roadmap.md` and the relevant section-specific docs in `plan/`. Understand the deliverables and acceptance criteria.
-2. **Update `CURRENT_PHASE`** in this file.
-3. **Implement backend logic first** (`app/core/`, `app/storage/`, domain modules).
-4. **Define Pydantic schemas** (`app/schemas/`) for any new data structures.
-5. **Write tests** for the backend logic.
-6. **Implement API endpoints** (`app/api/`) if the phase includes them.
-7. **Write API tests** using the test client.
-8. **Implement GUI** (`app/templates/`) if the phase includes it.
-9. **Manually test end-to-end** via `uvicorn app.main:app --reload`.
-10. **Verify all acceptance criteria** from `plan/11-roadmap.md`.
-11. **Run the full test suite** and ensure everything passes.
-12. **Lint and format**: `.venv/bin/ruff check app/ tests/ --fix && .venv/bin/ruff format app/ tests/`
+   If existing tests fail before you start, stop and notify the user. **You must not skip this part.**
+2. **Read the plan.** Open `plan/11-roadmap.md` and the relevant section-specific docs in `plan/`. Understand the deliverables and acceptance criteria.
+3. **Update `CURRENT_PHASE`** in this file.
+4. **Implement backend logic first** (`app/core/`, `app/storage/`, domain modules).
+5. **Define Pydantic schemas** (`app/schemas/`) for any new data structures.
+6. **Write tests** for the backend logic.
+7. **Implement API endpoints** (`app/api/`) if the phase includes them.
+8. **Write API tests** using the test client.
+9. **Implement GUI** (`app/templates/`) if the phase includes it.
+10. **Manually test end-to-end** via `uvicorn app.main:app --reload`.
+11. **Verify all acceptance criteria** from `plan/11-roadmap.md`.
+12. **Run the full test suite** and ensure everything passes.
+13. **Lint and format**: `.venv/bin/ruff check app/ tests/ --fix && .venv/bin/ruff format app/ tests/`
 
 ---
 
