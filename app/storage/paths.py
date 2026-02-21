@@ -105,30 +105,21 @@ class WorkspacePaths:
         """Return the path to an experiment's logs folder."""
         return self.experiment_dir(project_id, experiment_id) / "logs"
 
-    def evaluations_dir(self, project_id: str) -> Path:
-        """Return the path to a project's evaluations folder."""
-        return self.project_dir(project_id) / "evaluations"
+    def experiment_evaluation_dir(self, project_id: str, experiment_id: str) -> Path:
+        """Return the path to an experiment's evaluation folder."""
+        return self.experiment_dir(project_id, experiment_id) / "evaluation"
 
-    def evaluations_index_file(self, project_id: str) -> Path:
-        """Return the path to `evaluations_index.json`."""
-        return self.evaluations_dir(project_id) / "evaluations_index.json"
+    def experiment_evaluation_metadata_file(self, project_id: str, experiment_id: str) -> Path:
+        """Return the path to an experiment evaluation's `evaluation.json`."""
+        return self.experiment_evaluation_dir(project_id, experiment_id) / "evaluation.json"
 
-    def evaluation_dir(self, project_id: str, evaluation_id: str) -> Path:
-        """Return the path to an evaluation folder."""
-        safe_evaluation_id = _validate_identifier(evaluation_id, field_name="evaluation_id")
-        return self.evaluations_dir(project_id) / safe_evaluation_id
+    def experiment_evaluation_aggregate_file(self, project_id: str, experiment_id: str) -> Path:
+        """Return the path to an experiment evaluation's `aggregate.json`."""
+        return self.experiment_evaluation_dir(project_id, experiment_id) / "aggregate.json"
 
-    def evaluation_metadata_file(self, project_id: str, evaluation_id: str) -> Path:
-        """Return the path to an evaluation's metadata JSON."""
-        return self.evaluation_dir(project_id, evaluation_id) / "evaluation.json"
-
-    def evaluation_aggregate_file(self, project_id: str, evaluation_id: str) -> Path:
-        """Return the path to an evaluation's aggregate metrics JSON."""
-        return self.evaluation_dir(project_id, evaluation_id) / "aggregate.json"
-
-    def evaluation_results_file(self, project_id: str, evaluation_id: str) -> Path:
-        """Return the path to an evaluation's per-image results JSON."""
-        return self.evaluation_dir(project_id, evaluation_id) / "results.json"
+    def experiment_evaluation_results_file(self, project_id: str, experiment_id: str) -> Path:
+        """Return the path to an experiment evaluation's `results.json`."""
+        return self.experiment_evaluation_dir(project_id, experiment_id) / "results.json"
 
     def exports_dir(self, project_id: str) -> Path:
         """Return the path to a project's exports folder."""
@@ -156,7 +147,6 @@ class WorkspacePaths:
             self.dataset_masks_dir(project_id),
             self.dataset_thumbnails_dir(project_id),
             self.experiments_dir(project_id),
-            self.evaluations_dir(project_id),
             self.exports_dir(project_id),
         )
         for directory in directories:

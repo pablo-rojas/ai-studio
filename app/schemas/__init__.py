@@ -7,6 +7,19 @@ from app.schemas.dataset import (
     DatasetImportRequest,
     DatasetMetadata,
 )
+from app.schemas.evaluation import (
+    ClassificationAggregateMetrics,
+    ClassificationLabelRef,
+    ClassificationPerClassAggregate,
+    ClassificationPerImageResult,
+    ClassificationPrediction,
+    EvaluationConfig,
+    EvaluationProgress,
+    EvaluationRecord,
+    EvaluationResultsFile,
+    EvaluationResultsPage,
+    EvaluationResultsQuery,
+)
 from app.schemas.project import ProjectCreate, ProjectRename, ProjectResponse
 from app.schemas.split import (
     SplitCounts,
@@ -38,6 +51,17 @@ __all__ = [
     "DatasetImageListResponse",
     "DatasetImportRequest",
     "DatasetMetadata",
+    "ClassificationAggregateMetrics",
+    "ClassificationLabelRef",
+    "ClassificationPerClassAggregate",
+    "ClassificationPerImageResult",
+    "ClassificationPrediction",
+    "EvaluationConfig",
+    "EvaluationProgress",
+    "EvaluationRecord",
+    "EvaluationResultsFile",
+    "EvaluationResultsPage",
+    "EvaluationResultsQuery",
     "ProjectCreate",
     "ProjectRename",
     "ProjectResponse",

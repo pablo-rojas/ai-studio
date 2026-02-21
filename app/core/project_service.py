@@ -22,7 +22,6 @@ logger = logging.getLogger(__name__)
 _PROJECT_ID_PREFIX = "proj"
 _DEFAULT_VERSION = "1.0"
 _EMPTY_EXPERIMENTS_INDEX: dict[str, Any] = {"version": _DEFAULT_VERSION, "experiments": []}
-_EMPTY_EVALUATIONS_INDEX: dict[str, Any] = {"version": _DEFAULT_VERSION, "evaluations": []}
 _EMPTY_EXPORTS_INDEX: dict[str, Any] = {"version": _DEFAULT_VERSION, "exports": []}
 
 
@@ -182,11 +181,6 @@ class ProjectService:
             self.paths.experiments_index_file(project_id),
             lambda payload: payload,
             default_factory=lambda: _EMPTY_EXPERIMENTS_INDEX.copy(),
-        )
-        self.store.update(
-            self.paths.evaluations_index_file(project_id),
-            lambda payload: payload,
-            default_factory=lambda: _EMPTY_EVALUATIONS_INDEX.copy(),
         )
         self.store.update(
             self.paths.exports_index_file(project_id),
