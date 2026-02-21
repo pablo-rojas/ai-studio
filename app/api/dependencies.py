@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import Request
 
 from app.core.dataset_service import DatasetService
+from app.core.evaluation_service import EvaluationService
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
 from app.core.training_service import TrainingService
@@ -26,3 +27,8 @@ def get_split_service(request: Request) -> SplitService:
 def get_training_service(request: Request) -> TrainingService:
     """Resolve the shared training service instance from app state."""
     return request.app.state.training_service
+
+
+def get_evaluation_service(request: Request) -> EvaluationService:
+    """Resolve the shared evaluation service instance from app state."""
+    return request.app.state.evaluation_service

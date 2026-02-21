@@ -12,9 +12,10 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.api import datasets, pages, projects, splits, training
+from app.api import datasets, evaluation, pages, projects, splits, training
 from app.config import Settings, get_settings
 from app.core.dataset_service import DatasetService
+from app.core.evaluation_service import EvaluationService
 from app.core.exceptions import AIStudioError
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
@@ -126,6 +127,13 @@ def create_app(
         project_service=project_service,
         dataset_service=dataset_service,
     )
+    evaluation_service = EvaluationService(
+        paths=workspace_paths,
+        store=json_store,
+        project_service=project_service,
+        dataset_service=dataset_service,
+        training_service=training_service,
+    )
 
     app_root = Path(__file__).resolve().parent
     templates_dir = app_root / "templates"
@@ -144,6 +152,7 @@ def create_app(
     app.state.dataset_service = dataset_service
     app.state.split_service = split_service
     app.state.training_service = training_service
+    app.state.evaluation_service = evaluation_service
     app.state.templates = Jinja2Templates(directory=str(templates_dir))
 
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
@@ -152,6 +161,7 @@ def create_app(
     app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
     app.include_router(splits.router, prefix="/api/splits", tags=["splits"])
     app.include_router(training.router, prefix="/api/training", tags=["training"])
+    app.include_router(evaluation.router, prefix="/api/evaluation", tags=["evaluation"])
     app.include_router(pages.router, tags=["pages"])
 
     _register_exception_handlers(app)
