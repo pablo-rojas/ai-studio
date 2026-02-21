@@ -162,17 +162,25 @@ A card showing all aggregate metrics in a table:
 
 ## 4. Storing Aggregate Metrics
 
-Aggregate metrics are stored in `evaluation.json` under the `results` key:
+Aggregate metrics are computed over the **combined pool** of all selected split subsets (e.g., if the user selected `["test", "val"]`, metrics are computed over all images from both subsets together — no per-subset breakdown).
+
+Aggregate metrics are stored in a separate `aggregate.json` file inside the experiment's evaluation subfolder:
+
+```
+experiments/<experiment-id>/evaluation/aggregate.json
+```
 
 ```json
 {
-  "id": "eval-abc123",
-  "status": "completed",
-  "config": { "..." : "..." },
-  "results": {
-    "accuracy": 0.956,
-    "f1_macro": 0.951,
-    "...": "..."
+  "accuracy": 0.956,
+  "f1_macro": 0.951,
+  "precision_macro": 0.948,
+  "recall_macro": 0.953,
+  "confusion_matrix": [[38, 1, 1], [0, 40, 1], [2, 0, 37]],
+  "per_class": {
+    "cat": { "precision": 0.95, "recall": 0.95, "f1": 0.95, "support": 40 },
+    "dog": { "precision": 0.98, "recall": 0.98, "f1": 0.98, "support": 41 },
+    "bird": { "precision": 0.95, "recall": 0.95, "f1": 0.95, "support": 39 }
   }
 }
 ```

@@ -133,9 +133,9 @@ Only implement features belonging to the current phase. Do not jump ahead. Each 
 | 10 | Experiment Tracking | `app/core/training_service.py`, run management, metrics JSON |
 | 11 | API: Training & Experiments | `app/api/training.py`, SSE streaming |
 | 12 | GUI: Training Page | `app/templates/pages/training.html`, live loss curves |
-| 13 | Evaluation Pipeline | `app/evaluation/evaluator.py`, `app/evaluation/metrics.py` |
-| 14 | API: Evaluation | `app/api/evaluation.py` |
-| 15 | GUI: Evaluation Page | `app/templates/pages/evaluation.html`, confusion matrix |
+| 13 | Evaluation Pipeline | `app/evaluation/evaluator.py`, `app/core/evaluation_service.py`, `app/schemas/evaluation.py` |
+| 14 | API: Evaluation | `app/api/evaluation.py` (experiment-scoped, no separate eval ID) |
+| 15 | GUI: Evaluation Page | `app/templates/pages/evaluation.html`, 2-col layout, 3 collapsible sections |
 | 16 | ONNX Export | `app/export/onnx_export.py`, `app/export/validation.py` |
 | 17 | API: Export | `app/api/export.py` |
 | 18 | GUI: Export Page | `app/templates/pages/export.html` |
@@ -428,6 +428,22 @@ Use `sklearn.model_selection.train_test_split` with `stratify` for splits.
 - Experiments → runs hierarchy (one experiment can have many runs).
 - Each run gets a folder with `run.json`, `config.json`, `metrics.json`, `checkpoints/`.
 - Run statuses: `pending`, `running`, `completed`, `failed`, `cancelled`.
+
+### Phases 13–15 — Evaluation
+
+**Read:** `plan/07-evaluation/00-evaluation-pipeline.md`, `plan/07-evaluation/01-per-image-results.md`, `plan/07-evaluation/02-aggregate-metrics.md`
+
+**Key design:** Evaluation is **1:1 with an experiment** — no separate evaluation IDs, no `evaluations/` folder, no `evaluations_index.json`. Evaluation data lives inside the experiment folder at `experiments/<exp-id>/evaluation/`.
+
+- `app/evaluation/evaluator.py` — loads checkpoint, builds combined dataloader from selected subsets, runs inference.
+- `app/core/evaluation_service.py` — start, get, reset evaluation; list checkpoints.
+- `app/schemas/evaluation.py` — `EvaluationConfig`, `EvaluationRecord`, per-image result models.
+- Multiple split subsets (e.g., `["test", "val"]`) are pooled into a single combined evaluation. Per-image results are tagged with `"subset"` field.
+- Aggregate metrics are computed over the combined pool — no per-subset breakdown.
+- **Reset** immediately deletes the `evaluation/` subfolder (no confirmation dialog).
+- **Checkpoint selector** only shows `.ckpt` files that actually exist in the experiment's `checkpoints/` directory.
+- Storage path helpers: `experiment_evaluation_dir()`, `experiment_evaluation_metadata_file()`, `experiment_evaluation_aggregate_file()`, `experiment_evaluation_results_file()` in `app/storage/paths.py`.
+- GUI: 2-column layout identical to Training page. Left panel = completed experiments only. Right panel = 3 collapsible Alpine.js sections (config + actions, metrics + visualizations, per-image results grid).
 
 ---
 

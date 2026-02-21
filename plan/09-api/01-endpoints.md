@@ -140,13 +140,15 @@ Backend appends the name to `split_names`, appends a value (`"train"`, `"val"`, 
 
 ## 5. Evaluation
 
+Evaluation is **1:1 with an experiment** — each experiment can have at most one evaluation at a time. There is no separate evaluation ID; the experiment ID is the identifier. Evaluation data lives inside the experiment folder at `experiments/<exp-id>/evaluation/`.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/evaluation/{project_id}` | List evaluations |
-| `POST` | `/api/evaluation/{project_id}` | Create + start evaluation |
-| `GET` | `/api/evaluation/{project_id}/{eval_id}` | Get evaluation status + results |
-| `DELETE` | `/api/evaluation/{project_id}/{eval_id}` | Delete evaluation |
-| `GET` | `/api/evaluation/{project_id}/{eval_id}/results` | Per-image results (paginated) |
+| `POST` | `/api/evaluation/{project_id}/{experiment_id}` | Start evaluation for an experiment |
+| `GET` | `/api/evaluation/{project_id}/{experiment_id}` | Get evaluation status + aggregate metrics |
+| `DELETE` | `/api/evaluation/{project_id}/{experiment_id}` | Reset (delete) evaluation data |
+| `GET` | `/api/evaluation/{project_id}/{experiment_id}/results` | Per-image results (paginated) |
+| `GET` | `/api/evaluation/{project_id}/{experiment_id}/checkpoints` | List available checkpoint files |
 
 ### Query Parameters for Results
 
@@ -157,17 +159,43 @@ Backend appends the name to `split_names`, appends a value (`"train"`, `"val"`, 
 | `sort_by` | string | `"filename"` | `filename`, `confidence`, `error` |
 | `filter_correct` | bool | — | `true` for correct only, `false` for errors |
 | `filter_class` | string | — | Filter by ground truth class |
+| `filter_subset` | string | — | Filter by split subset (e.g., `"test"`, `"val"`) |
 
-### `POST /api/evaluation/{project_id}` — Create Evaluation
+### `POST /api/evaluation/{project_id}/{experiment_id}` — Start Evaluation
+
+Requires the experiment to have `status == "completed"`. Fails if an evaluation is already running.
 
 **Request:**
 ```json
 {
-  "experiment_id": "exp-a1b2c3d4",
   "checkpoint": "best",
-  "split_name": "80-10-10",
-  "split_subset": "test",
-  "batch_size": 32
+  "split_subsets": ["test"],
+  "batch_size": 32,
+  "device": "cuda:0"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "data": { "status": "pending" }
+}
+```
+
+### `DELETE /api/evaluation/{project_id}/{experiment_id}` — Reset Evaluation
+
+Immediately deletes the `evaluation/` subfolder inside the experiment. No confirmation required.
+
+### `GET /api/evaluation/{project_id}/{experiment_id}/checkpoints` — List Checkpoints
+
+Returns only checkpoint files that actually exist in the experiment's `checkpoints/` directory.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "data": { "checkpoints": ["best", "last"] }
 }
 ```
 

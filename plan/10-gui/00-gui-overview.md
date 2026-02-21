@@ -90,8 +90,10 @@ app/templates/
 │   ├── experiment_list.html
 │   ├── hparam_form.html
 │   ├── training_results.html
-│   ├── eval_results.html
-│   ├── eval_image_detail.html
+│   ├── evaluation_experiment_list.html
+│   ├── evaluation_detail.html
+│   ├── evaluation_empty.html
+│   ├── evaluation_results_grid.html
 │   ├── export_list.html
 │   ├── error_toast.html
 │   └── ...

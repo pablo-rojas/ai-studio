@@ -6,17 +6,22 @@ This document describes how per-image predictions are stored and displayed.
 
 ## 1. Overview
 
-After running evaluation, all per-image predictions are stored in a single `results.json` file inside the evaluation folder. This avoids creating thousands of tiny files for large datasets (10k+ images), which would be slow to list, sort, and paginate server-side.
+After running evaluation, all per-image predictions are stored in a single `results.json` file inside the experiment's `evaluation/` subfolder (`experiments/<exp-id>/evaluation/results.json`). This avoids creating thousands of tiny files for large datasets (10k+ images), which would be slow to list, sort, and paginate server-side.
+
+When multiple split subsets are evaluated together (e.g., `["test", "val"]`), all images are pooled into the same `results.json`. Each per-image entry includes a `"subset"` field to identify which subset the image belongs to, enabling filtering by subset in the GUI.
 
 ---
 
 ## 2. Per-Image JSON Schema (by Task)
+
+Every per-image entry includes a `"subset"` field (e.g., `"test"`, `"val"`, `"train"`) identifying which split subset the image comes from.
 
 ### Classification
 
 ```json
 {
   "filename": "img_001.png",
+  "subset": "test",
   "ground_truth": { "class_id": 0, "class_name": "cat" },
   "prediction": { "class_id": 0, "class_name": "cat", "confidence": 0.94 },
   "correct": true,
@@ -29,6 +34,7 @@ After running evaluation, all per-image predictions are stored in a single `resu
 ```json
 {
   "filename": "img_001.png",
+  "subset": "test",
   "ground_truth": { "is_anomalous": true },
   "prediction": { "is_anomalous": true, "anomaly_score": 0.87 },
   "correct": true
@@ -40,6 +46,7 @@ After running evaluation, all per-image predictions are stored in a single `resu
 ```json
 {
   "filename": "img_001.png",
+  "subset": "test",
   "ground_truth": [
     { "class_name": "car", "bbox": [120, 50, 200, 150] }
   ],
@@ -57,6 +64,7 @@ After running evaluation, all per-image predictions are stored in a single `resu
 ```json
 {
   "filename": "img_001.png",
+  "subset": "test",
   "ground_truth": [
     { "class_name": "ship", "bbox": [320, 240, 100, 40, 35.0] }
   ],
@@ -74,6 +82,7 @@ After running evaluation, all per-image predictions are stored in a single `resu
 ```json
 {
   "filename": "img_001.png",
+  "subset": "test",
   "predicted_mask_path": "pred_masks/img_001_pred.png",
   "pixel_accuracy": 0.94,
   "per_class_iou": { "background": 0.97, "road": 0.91, "building": 0.88 },
@@ -86,6 +95,7 @@ After running evaluation, all per-image predictions are stored in a single `resu
 ```json
 {
   "filename": "img_001.png",
+  "subset": "test",
   "ground_truth": [
     { "class_name": "person", "bbox": [50, 30, 120, 250] }
   ],
@@ -103,6 +113,7 @@ After running evaluation, all per-image predictions are stored in a single `resu
 ```json
 {
   "filename": "img_001.png",
+  "subset": "test",
   "ground_truth": [3.7],
   "prediction": [3.5],
   "error": [-0.2],
@@ -150,13 +161,14 @@ The Evaluation page result grid supports:
 | **Filter by class** | Show only images of a specific class |
 | **Filter by GT class** | Filter by ground truth class |
 | **Filter by predicted class** | Filter by what the model predicted |
+| **Filter by subset** | Show only images from a specific split subset (test, val, train) |
 
 ---
 
 ## 5. Pagination
 
 - Per-image results are loaded in pages (50 per page, configurable).
-- The API endpoint `/api/evaluation/{eval_id}/results` accepts `page`, `page_size`, `sort_by`, `filter_*` parameters.
+- The API endpoint `/api/evaluation/{project_id}/{experiment_id}/results` accepts `page`, `page_size`, `sort_by`, `filter_*` parameters.
 - The endpoint reads `results.json`, applies filters/sorting in memory, and returns the requested page slice.
 - `results.json` contains a top-level `"results"` array with one entry per image.
 

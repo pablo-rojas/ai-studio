@@ -311,60 +311,77 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ## Phase 13 — Evaluation Pipeline
 
-**Goal**: Evaluate trained models on the test set.
+**Goal**: Evaluate trained models on test/validation sets. Evaluation is 1:1 with an experiment — data lives inside the experiment folder.
 
 ### Deliverables
 
 | Component | Scope |
 |-----------|-------|
-| **Test-set evaluation** | Load checkpoint, run inference on test split |
-| **Per-image results** | Store prediction + confidence per image |
-| **Aggregate metrics** | Compute task-specific aggregate metrics |
+| **Evaluator** | Load checkpoint, build combined dataloader from selected split subsets, run inference |
+| **Per-image results** | Store prediction + confidence + subset tag per image in `results.json` |
+| **Aggregate metrics** | Compute task-specific metrics over the combined pool, store in `aggregate.json` |
 | **Confusion matrix** | Generate confusion matrix data (classification) |
+| **Evaluation service** | CRUD: start evaluation, get status, get results, reset (delete), list checkpoints |
+| **Storage paths** | New path helpers for `experiments/<exp-id>/evaluation/` subfolder |
+| **Pydantic schemas** | `EvaluationConfig`, `EvaluationRecord`, per-image result models |
 
 ### Acceptance Criteria
 
-- [ ] Best checkpoint can be evaluated on the test set
-- [ ] Per-image predictions with confidence scores are stored
-- [ ] Confusion matrix data is generated
+- [ ] Best checkpoint can be evaluated on selected split subsets
+- [ ] Per-image predictions with confidence scores and subset tags are stored
+- [ ] Aggregate metrics (including confusion matrix) are computed and stored
+- [ ] Evaluation data lives inside the experiment folder (`evaluation/` subfolder)
+- [ ] Reset deletes the evaluation subfolder immediately
+- [ ] Checkpoint discovery only lists existing `.ckpt` files
 
 ---
 
 ## Phase 14 — API: Evaluation
 
-**Goal**: Expose evaluation functionality via REST endpoints.
+**Goal**: Expose evaluation functionality via REST endpoints. Evaluation is scoped to an experiment (no separate evaluation ID).
 
 ### Deliverables
 
 | Component | Scope |
 |-----------|-------|
-| **Evaluation endpoints** | Trigger evaluation, get results |
+| **Start evaluation** | `POST /api/evaluation/{project_id}/{experiment_id}` |
+| **Get evaluation** | `GET /api/evaluation/{project_id}/{experiment_id}` (status + aggregate) |
+| **Reset evaluation** | `DELETE /api/evaluation/{project_id}/{experiment_id}` (immediate delete) |
+| **Per-image results** | `GET /api/evaluation/{project_id}/{experiment_id}/results` (paginated, filterable by subset) |
+| **List checkpoints** | `GET /api/evaluation/{project_id}/{experiment_id}/checkpoints` |
 
 ### Acceptance Criteria
 
 - [ ] Evaluation can be triggered and results retrieved via API
+- [ ] Reset endpoint immediately deletes evaluation data
+- [ ] Results endpoint supports filtering by subset, correctness, and class
+- [ ] Checkpoints endpoint only returns existing checkpoint files
 - [ ] API can be exercised end-to-end with curl/httpie
 
 ---
 
 ## Phase 15 — GUI: Evaluation Page
 
-**Goal**: Build the evaluation results page.
+**Goal**: Build the evaluation page with 2-column layout (experiment list + 3 collapsible sections).
 
 ### Deliverables
 
 | Component | Scope |
 |-----------|-------|
-| **Trigger evaluation** | Button to evaluate an experiment on the test set |
-| **Aggregate metrics** | Display task-specific metrics in a summary card |
-| **Confusion matrix** | Interactive confusion matrix visualization |
-| **Per-image results** | Scrollable list with prediction, ground truth, confidence |
+| **Left panel** | Experiment list (completed only), identical style to Training page |
+| **Section 1: Config** | Checkpoint dropdown (existing only), split subset checklist, batch size, device, Evaluate/Reset buttons |
+| **Section 2: Metrics** | Aggregate metrics table, confusion matrix heatmap (Chart.js), per-class bar chart |
+| **Section 3: Per-image** | Thumbnail grid with ✓/✗ borders, filters (correct/incorrect, class, subset), sort, pagination, detail view |
+| **Collapsible UI** | Alpine.js collapsible/expandable sections |
 
 ### Acceptance Criteria
 
-- [ ] Evaluation can be triggered from the UI
-- [ ] Confusion matrix is displayed
+- [ ] Left panel only shows completed experiments
+- [ ] Evaluation can be triggered from the UI with configurable subsets
+- [ ] Confusion matrix heatmap is displayed
 - [ ] Per-image results show predictions with confidence scores
+- [ ] Reset immediately clears evaluation and returns to config state
+- [ ] Checkpoint selector only shows existing checkpoint files
 
 ---
 

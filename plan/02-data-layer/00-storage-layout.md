@@ -34,16 +34,12 @@ workspace/
     │   │   │   ├── checkpoints/    # (created on training start)
     │   │   │   │   ├── best.ckpt
     │   │   │   │   └── last.ckpt
-    │   │   │   └── logs/
-    │   │   │       └── training.log
-    │   │   └── ...
-    │   │
-    │   ├── evaluations/            # Evaluation results
-    │   │   ├── evaluations_index.json
-    │   │   ├── <evaluation-id>/
-    │   │   │   ├── evaluation.json   # Eval config (checkpoint, split, params)
-    │   │   │   ├── aggregate.json    # Aggregate metrics
-    │   │   │   └── results.json      # All per-image predictions (single file)
+    │   │   │   ├── logs/
+    │   │   │   │   └── training.log
+    │   │   │   └── evaluation/     # Evaluation results (1:1 with experiment)
+    │   │   │       ├── evaluation.json   # Eval config + status + progress
+    │   │   │       ├── aggregate.json    # Aggregate metrics
+    │   │   │       └── results.json      # All per-image predictions (single file)
     │   │   └── ...
     │   │
     │   └── exports/                # Exported models
