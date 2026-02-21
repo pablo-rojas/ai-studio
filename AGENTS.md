@@ -327,6 +327,11 @@ def sample_dataset(sample_project):
 
 When starting a phase, follow this sequence:
 
+0. **Run the full test suite** before writing any code. This establishes a clean baseline so that any test failures introduced later can be attributed to the new phase's changes.
+   ```bash
+   .venv/bin/pytest tests/ -v
+   ```
+   If existing tests fail before you start, stop and notify the user.
 1. **Read the plan.** Open `plan/11-roadmap.md` and the relevant section-specific docs in `plan/`. Understand the deliverables and acceptance criteria.
 2. **Update `CURRENT_PHASE`** in this file.
 3. **Implement backend logic first** (`app/core/`, `app/storage/`, domain modules).
