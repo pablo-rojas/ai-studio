@@ -10,13 +10,16 @@ from app.api.datasets import build_class_badge_map
 from app.api.dependencies import (
     get_dataset_service,
     get_evaluation_service,
+    get_export_service,
     get_project_service,
     get_split_service,
     get_training_service,
 )
+from app.api.export_page_context import build_export_page_context
 from app.core.dataset_service import DatasetService
 from app.core.evaluation_service import EvaluationService
 from app.core.exceptions import NotFoundError
+from app.core.export_service import ExportService
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
 from app.core.training_form_layout import TrainingSection
@@ -30,6 +33,7 @@ DatasetServiceDep = Annotated[DatasetService, Depends(get_dataset_service)]
 SplitServiceDep = Annotated[SplitService, Depends(get_split_service)]
 TrainingServiceDep = Annotated[TrainingService, Depends(get_training_service)]
 EvaluationServiceDep = Annotated[EvaluationService, Depends(get_evaluation_service)]
+ExportServiceDep = Annotated[ExportService, Depends(get_export_service)]
 
 _CLASSIFICATION_BACKBONES: tuple[tuple[str, str], ...] = (
     ("resnet18", "ResNet-18"),
@@ -420,5 +424,42 @@ async def evaluation_page(
             "results_query": results_query,
             "results_page": results_page,
             "active_page": "evaluation",
+        },
+    )
+
+
+@router.get("/projects/{project_id}/export", include_in_schema=False)
+async def export_page(
+    request: Request,
+    project_id: str,
+    project_service: ProjectServiceDep,
+    dataset_service: DatasetServiceDep,
+    evaluation_service: EvaluationServiceDep,
+    export_service: ExportServiceDep,
+    training_service: TrainingServiceDep,
+):
+    """Render the model export page for an existing project."""
+    templates: Jinja2Templates = request.app.state.templates
+    project = project_service.get_project(project_id)
+    selected_experiment_id = request.query_params.get("experiment_id")
+    selected_export_id = request.query_params.get("export_id")
+
+    context = build_export_page_context(
+        project_id=project_id,
+        dataset_service=dataset_service,
+        evaluation_service=evaluation_service,
+        export_service=export_service,
+        training_service=training_service,
+        selected_experiment_id=selected_experiment_id,
+        selected_export_id=selected_export_id,
+    )
+
+    return templates.TemplateResponse(
+        request,
+        "pages/export.html",
+        {
+            "project": project,
+            "active_page": "export",
+            **context,
         },
     )

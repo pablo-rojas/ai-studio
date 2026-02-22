@@ -146,6 +146,81 @@ async def test_export_api_conflict_and_not_found_errors(
     assert missing_download_payload["error"]["code"] == "NOT_FOUND"
 
 
+@pytest.mark.asyncio
+async def test_export_api_hx_endpoints_render_export_fragments(
+    test_client,
+    workspace: Path,
+    monkeypatch,
+) -> None:
+    project_id = await _create_project(test_client, name="Export API HX Project")
+    await _import_dataset_and_split(
+        test_client,
+        workspace,
+        project_id,
+        source_name="export_api_hx_source",
+    )
+    experiment_id = await _create_experiment(test_client, project_id, name="HX Baseline")
+    _mark_experiment_completed_and_seed_checkpoints(test_client, project_id, experiment_id)
+
+    monkeypatch.setattr(
+        onnx_export_module,
+        "create_model",
+        lambda *args, **kwargs: _ColorHeuristicClassifier(),
+    )
+
+    hx_headers = {"HX-Request": "true"}
+
+    list_response = await test_client.get(
+        f"/api/export/{project_id}",
+        headers=hx_headers,
+    )
+    assert list_response.status_code == 200
+    assert 'id="export-page-root"' in list_response.text
+    assert "Create Export" in list_response.text
+
+    create_response = await test_client.post(
+        f"/api/export/{project_id}",
+        data={
+            "experiment_id": experiment_id,
+            "checkpoint": "best",
+            "format": "onnx",
+            "options.opset_version": "17",
+            "input_height": "32",
+            "input_width": "32",
+            "dynamic_batch": "true",
+            "options.simplify": "false",
+        },
+        headers=hx_headers,
+    )
+    assert create_response.status_code == 200
+    assert 'id="export-list"' in create_response.text
+    assert "Export Detail" in create_response.text
+    assert "Download ONNX" in create_response.text
+    assert create_response.headers.get("HX-Push-Url", "").startswith(
+        f"/projects/{project_id}/export"
+    )
+
+    list_after_response = await test_client.get(f"/api/export/{project_id}")
+    assert list_after_response.status_code == 200
+    export_id = list_after_response.json()["data"]["exports"][0]["id"]
+
+    get_response = await test_client.get(
+        f"/api/export/{project_id}/{export_id}",
+        headers=hx_headers,
+    )
+    assert get_response.status_code == 200
+    assert "data-export-detail" in get_response.text
+    assert f"/api/export/{project_id}/{export_id}/download" in get_response.text
+
+    delete_response = await test_client.delete(
+        f"/api/export/{project_id}/{export_id}",
+        headers=hx_headers,
+    )
+    assert delete_response.status_code == 200
+    assert 'id="export-page-root"' in delete_response.text
+    assert "No exports yet." in delete_response.text
+
+
 async def _create_project(test_client, *, name: str) -> str:
     response = await test_client.post(
         "/api/projects",

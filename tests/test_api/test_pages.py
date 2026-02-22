@@ -15,6 +15,13 @@ from app.schemas.evaluation import (
     EvaluationRecord,
     EvaluationResultsFile,
 )
+from app.schemas.export import (
+    ExportRecord,
+    ExportsIndex,
+    ExportSummary,
+    ExportValidationResult,
+    OnnxExportOptions,
+)
 
 
 @pytest.mark.asyncio
@@ -607,6 +614,90 @@ async def test_evaluation_page_confusion_matrix_handles_zero_support_rows(
     assert 'data-eval-cm-row-label="cats"' in response.text
 
 
+@pytest.mark.asyncio
+async def test_export_page_shows_dataset_required_state(test_client) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Export Nav Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    response = await test_client.get(f"/projects/{project_id}/export")
+
+    assert response.status_code == 200
+    assert "Export" in response.text
+    assert "No dataset imported." in response.text
+    assert "Go to Dataset Page" in response.text
+    assert f"/projects/{project_id}/dataset" in response.text
+
+
+@pytest.mark.asyncio
+async def test_export_page_renders_workspace_and_download_link(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Export Browser Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "export_page_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    completed_experiment_response = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Export Ready", "split_name": "80-10-10"},
+    )
+    assert completed_experiment_response.status_code == 200
+    completed_experiment_id = completed_experiment_response.json()["data"]["id"]
+    _mark_experiment_completed_and_seed_checkpoints(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+    )
+    export_id = _seed_completed_export_artifact(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+    )
+
+    response = await test_client.get(
+        f"/projects/{project_id}/export?experiment_id={completed_experiment_id}&export_id={export_id}"
+    )
+
+    assert response.status_code == 200
+    assert 'id="export-page-root"' in response.text
+    assert 'id="export-list"' in response.text
+    assert "Create Export" in response.text
+    assert "Export ONNX" in response.text
+    assert "Export Detail" in response.text
+    assert "Validation" in response.text
+    assert "Download ONNX" in response.text
+    assert f"/api/export/{project_id}/{export_id}/download" in response.text
+    assert "Export Ready" in response.text
+    assert f"/projects/{project_id}/export?experiment_id={completed_experiment_id}" in response.text
+
+
 def _mark_experiment_completed_and_seed_checkpoints(
     test_client,
     *,
@@ -709,6 +800,61 @@ def _seed_completed_evaluation_artifacts(
         evaluation_service.paths.experiment_evaluation_results_file(project_id, experiment_id),
         results.model_dump(mode="json"),
     )
+
+
+def _seed_completed_export_artifact(
+    test_client,
+    *,
+    project_id: str,
+    experiment_id: str,
+) -> str:
+    app = test_client._transport.app
+    export_service = app.state.export_service
+    now = _utc_now()
+    export_id = "export-feedc0de"
+
+    export_dir = export_service.paths.export_dir(project_id, export_id)
+    export_dir.mkdir(parents=True, exist_ok=True)
+    (export_dir / "model.onnx").write_bytes(b"onnx-bytes")
+
+    record = ExportRecord(
+        id=export_id,
+        experiment_id=experiment_id,
+        checkpoint="best",
+        format="onnx",
+        options=OnnxExportOptions(opset_version=17, input_shape=[1, 3, 224, 224], simplify=True),
+        created_at=now,
+        started_at=now,
+        completed_at=now,
+        status="completed",
+        output_file="model.onnx",
+        output_size_mb=0.001,
+        validation=ExportValidationResult(
+            passed=True,
+            max_diff=1.2e-6,
+            mean_diff=4.0e-7,
+        ),
+        error=None,
+    )
+    summary = ExportSummary(
+        id=record.id,
+        experiment_id=record.experiment_id,
+        checkpoint=record.checkpoint,
+        format=record.format,
+        status=record.status,
+        created_at=record.created_at,
+        output_size_mb=record.output_size_mb,
+    )
+
+    export_service.store.write(
+        export_service.paths.export_metadata_file(project_id, export_id),
+        record.model_dump(mode="json"),
+    )
+    export_service.store.write(
+        export_service.paths.exports_index_file(project_id),
+        ExportsIndex(version="1.0", exports=[summary]).model_dump(mode="json"),
+    )
+    return export_id
 
 
 def _utc_now() -> datetime:

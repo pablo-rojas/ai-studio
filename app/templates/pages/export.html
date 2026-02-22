@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Export{% endblock %}
+
+{% block content %}
+<section class="space-y-6">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">Export</h1>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+        Export completed experiments for <span class="font-medium">{{ project.name }}</span>.
+      </p>
+    </div>
+  </div>
+
+  {% include "fragments/export_page_root.html" %}
+</section>
+{% endblock %}
