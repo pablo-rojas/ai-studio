@@ -20,6 +20,15 @@ from app.schemas.evaluation import (
     EvaluationResultsPage,
     EvaluationResultsQuery,
 )
+from app.schemas.export import (
+    ExportCreate,
+    ExportFormatInfo,
+    ExportRecord,
+    ExportsIndex,
+    ExportSummary,
+    ExportValidationResult,
+    OnnxExportOptions,
+)
 from app.schemas.project import ProjectCreate, ProjectRename, ProjectResponse
 from app.schemas.split import (
     SplitCounts,
@@ -62,6 +71,13 @@ __all__ = [
     "EvaluationResultsFile",
     "EvaluationResultsPage",
     "EvaluationResultsQuery",
+    "ExportCreate",
+    "ExportFormatInfo",
+    "ExportRecord",
+    "ExportsIndex",
+    "ExportSummary",
+    "ExportValidationResult",
+    "OnnxExportOptions",
     "ProjectCreate",
     "ProjectRename",
     "ProjectResponse",

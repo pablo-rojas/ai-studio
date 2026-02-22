@@ -19,6 +19,8 @@ dependencies = [
   "python-multipart>=0.0.9",
   "pydantic>=2.6",
   "scikit-learn>=1.4",
+  "onnx>=1.15",
+  "onnxruntime>=1.17",
   "uvicorn>=0.29",
 ]
 
