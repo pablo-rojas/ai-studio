@@ -1,0 +1,34 @@
+<section id="evaluation-experiment-list" class="space-y-2">
+  {% if completed_experiments %}
+    {% for experiment in completed_experiments %}
+    {% set is_selected = selected_experiment_id == experiment.id %}
+    <button
+      type="button"
+      hx-get="/api/evaluation/{{ project_id }}/{{ experiment.id }}"
+      hx-target="#evaluation-workspace"
+      hx-swap="outerHTML"
+      hx-push-url="/projects/{{ project_id }}/evaluation?experiment_id={{ experiment.id }}"
+      class="w-full rounded-lg border p-3 text-left text-sm transition {% if is_selected %}border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10{% else %}border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700{% endif %}"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <p class="truncate font-medium text-slate-900 dark:text-slate-100">{{ experiment.name }}</p>
+        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200">
+          completed
+        </span>
+      </div>
+      <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ experiment.id }}</p>
+      {% if experiment.best_metric_value is not none %}
+      <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">
+        Best metric: <span class="font-medium">{{ "%.4f"|format(experiment.best_metric_value) }}</span>
+      </p>
+      {% else %}
+      <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Best metric: —</p>
+      {% endif %}
+    </button>
+    {% endfor %}
+  {% else %}
+    <p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+      No completed experiments yet. Train a model on the Training page.
+    </p>
+  {% endif %}
+</section>

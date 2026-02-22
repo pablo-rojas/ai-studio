@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from PIL import Image
+
+from app.schemas.evaluation import (
+    ClassificationAggregateMetrics,
+    ClassificationLabelRef,
+    ClassificationPerImageResult,
+    ClassificationPrediction,
+    EvaluationProgress,
+    EvaluationRecord,
+    EvaluationResultsFile,
+)
 
 
 @pytest.mark.asyncio
@@ -353,6 +364,207 @@ async def test_training_page_renders_experiment_editor_and_live_chart_workspace(
     assert f"/api/training/{project_id}/experiments" in response.text
     assert f"/api/training/{project_id}/experiments/{experiment_id}/stream" in response.text
     assert f"/projects/{project_id}/training" in response.text
+
+
+@pytest.mark.asyncio
+async def test_evaluation_page_shows_dataset_required_state(test_client) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Evaluation Nav Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    response = await test_client.get(f"/projects/{project_id}/evaluation")
+
+    assert response.status_code == 200
+    assert "Evaluation" in response.text
+    assert "No dataset imported." in response.text
+    assert "Go to Dataset Page" in response.text
+    assert f"/projects/{project_id}/dataset" in response.text
+
+
+@pytest.mark.asyncio
+async def test_evaluation_page_renders_completed_experiment_workspace_and_results(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Evaluation Browser Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "evaluation_page_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    completed_experiment_response = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Eval Ready", "split_name": "80-10-10"},
+    )
+    assert completed_experiment_response.status_code == 200
+    completed_experiment_id = completed_experiment_response.json()["data"]["id"]
+    _mark_experiment_completed_and_seed_checkpoints(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+    )
+    _seed_completed_evaluation_artifacts(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+    )
+
+    created_experiment_response = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Still Training", "split_name": "80-10-10"},
+    )
+    assert created_experiment_response.status_code == 200
+
+    response = await test_client.get(
+        f"/projects/{project_id}/evaluation?experiment_id={completed_experiment_id}"
+    )
+
+    assert response.status_code == 200
+    assert "Completed Experiments" in response.text
+    assert "Eval Ready" in response.text
+    assert "Still Training" not in response.text
+    assert 'id="evaluation-workspace"' in response.text
+    assert "Configuration" in response.text
+    assert "Metrics and Visualizations" in response.text
+    assert "Per-Image Results" in response.text
+    assert "Confusion Matrix Heatmap" in response.text
+    assert "Class probabilities" in response.text
+    assert "Reset Evaluation" in response.text
+    assert f"/api/evaluation/{project_id}/{completed_experiment_id}" in response.text
+    assert f"/api/evaluation/{project_id}/{completed_experiment_id}/results" in response.text
+    assert f"/api/datasets/{project_id}/thumbnails/cat_page_000.png" in response.text
+    assert f"/projects/{project_id}/evaluation" in response.text
+
+
+def _mark_experiment_completed_and_seed_checkpoints(
+    test_client,
+    *,
+    project_id: str,
+    experiment_id: str,
+) -> None:
+    app = test_client._transport.app
+    training_service = app.state.training_service
+    experiment = training_service.get_experiment(project_id, experiment_id)
+    completed = experiment.model_copy(
+        update={
+            "status": "completed",
+            "started_at": _utc_now(),
+            "completed_at": _utc_now(),
+        }
+    )
+    training_service.store.write(
+        training_service.paths.experiment_metadata_file(project_id, experiment_id),
+        completed.model_dump(mode="json"),
+    )
+
+    checkpoints_dir = training_service.paths.experiment_checkpoints_dir(project_id, experiment_id)
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    (checkpoints_dir / "best.ckpt").write_bytes(b"best")
+    (checkpoints_dir / "last.ckpt").write_bytes(b"last")
+
+
+def _seed_completed_evaluation_artifacts(
+    test_client,
+    *,
+    project_id: str,
+    experiment_id: str,
+) -> None:
+    app = test_client._transport.app
+    evaluation_service = app.state.evaluation_service
+    now = _utc_now()
+
+    record = EvaluationRecord(
+        checkpoint="best",
+        split_subsets=["test"],
+        batch_size=8,
+        device="cpu",
+        status="completed",
+        progress=EvaluationProgress(processed=4, total=4),
+        created_at=now,
+        started_at=now,
+        completed_at=now,
+        error=None,
+    )
+    aggregate = ClassificationAggregateMetrics(
+        accuracy=0.75,
+        precision_macro=0.75,
+        recall_macro=0.75,
+        f1_macro=0.75,
+        confusion_matrix=[[2, 0], [1, 1]],
+        per_class={
+            "cats": {"precision": 0.67, "recall": 1.0, "f1": 0.8, "support": 2},
+            "dogs": {"precision": 1.0, "recall": 0.5, "f1": 0.67, "support": 2},
+        },
+    )
+    results = EvaluationResultsFile(
+        results=[
+            ClassificationPerImageResult(
+                filename="cat_page_000.png",
+                subset="test",
+                ground_truth=ClassificationLabelRef(class_id=0, class_name="cats"),
+                prediction=ClassificationPrediction(
+                    class_id=0,
+                    class_name="cats",
+                    confidence=0.93,
+                ),
+                correct=True,
+                probabilities={"cats": 0.93, "dogs": 0.07},
+            ),
+            ClassificationPerImageResult(
+                filename="dog_page_000.png",
+                subset="test",
+                ground_truth=ClassificationLabelRef(class_id=1, class_name="dogs"),
+                prediction=ClassificationPrediction(
+                    class_id=0,
+                    class_name="cats",
+                    confidence=0.62,
+                ),
+                correct=False,
+                probabilities={"cats": 0.62, "dogs": 0.38},
+            ),
+        ]
+    )
+
+    evaluation_service.store.write(
+        evaluation_service.paths.experiment_evaluation_metadata_file(project_id, experiment_id),
+        record.model_dump(mode="json"),
+    )
+    evaluation_service.store.write(
+        evaluation_service.paths.experiment_evaluation_aggregate_file(project_id, experiment_id),
+        aggregate.model_dump(mode="json"),
+    )
+    evaluation_service.store.write(
+        evaluation_service.paths.experiment_evaluation_results_file(project_id, experiment_id),
+        results.model_dump(mode="json"),
+    )
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _build_classification_source(source_root: Path, *, cats: int, dogs: int) -> None:

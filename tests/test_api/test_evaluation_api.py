@@ -173,6 +173,76 @@ async def test_evaluation_results_filters_and_missing_experiment_error(
     assert missing_payload["error"]["code"] == "EXPERIMENT_NOT_FOUND"
 
 
+@pytest.mark.asyncio
+async def test_evaluation_hx_endpoints_render_workspace_and_results_fragments(
+    test_client,
+    workspace: Path,
+    monkeypatch,
+) -> None:
+    project_id = await _create_project(test_client, name="Evaluation HX Project")
+    await _import_dataset_and_split(
+        test_client,
+        workspace,
+        project_id,
+        source_name="evaluation_hx_source",
+    )
+    experiment_id = await _create_experiment(test_client, project_id, name="HX Baseline")
+    _mark_experiment_completed_and_seed_checkpoints(test_client, project_id, experiment_id)
+
+    monkeypatch.setattr(
+        evaluator_module,
+        "create_model",
+        lambda *args, **kwargs: _AlwaysFirstClassClassifier(),
+    )
+    started = await test_client.post(
+        f"/api/evaluation/{project_id}/{experiment_id}",
+        json={
+            "checkpoint": "best",
+            "split_subsets": ["test"],
+            "batch_size": 8,
+            "device": "cpu",
+        },
+    )
+    assert started.status_code == 200
+
+    detail_response = await test_client.get(
+        f"/api/evaluation/{project_id}/{experiment_id}",
+        headers={"HX-Request": "true"},
+    )
+    assert detail_response.status_code == 200
+    assert 'id="evaluation-workspace"' in detail_response.text
+    assert "Configuration" in detail_response.text
+    assert "Per-Image Results" in detail_response.text
+    assert "Reset Evaluation" in detail_response.text
+
+    results_response = await test_client.get(
+        f"/api/evaluation/{project_id}/{experiment_id}/results",
+        params={
+            "page": 1,
+            "filter_correct": "",
+            "filter_subset": "",
+            "sort_by": "confidence",
+            "sort_order": "desc",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert results_response.status_code == 200
+    assert 'id="evaluation-results-grid"' in results_response.text
+    assert "Class probabilities" in results_response.text
+
+    reset_response = await test_client.delete(
+        f"/api/evaluation/{project_id}/{experiment_id}",
+        headers={"HX-Request": "true"},
+    )
+    assert reset_response.status_code == 200
+    assert 'id="evaluation-workspace"' in reset_response.text
+    assert "Evaluate" in reset_response.text
+    evaluation_dir = (
+        workspace / "projects" / project_id / "experiments" / experiment_id / "evaluation"
+    )
+    assert not evaluation_dir.exists()
+
+
 async def _create_project(test_client, *, name: str) -> str:
     response = await test_client.post(
         "/api/projects",
