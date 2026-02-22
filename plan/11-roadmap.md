@@ -362,17 +362,17 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ## Phase 15 — GUI: Evaluation Page
 
-**Goal**: Build the evaluation page with 2-column layout (experiment list + 3 collapsible sections).
+**Goal**: Build the evaluation page with 2-column layout (experiment list + top non-collapsible cards + collapsible per-image section).
 
 ### Deliverables
 
 | Component | Scope |
 |-----------|-------|
 | **Left panel** | Experiment list (completed only), identical style to Training page |
-| **Section 1: Config** | Checkpoint dropdown (existing only), split subset checklist, batch size, device, Evaluate/Reset buttons |
-| **Section 2: Metrics** | Aggregate metrics table, confusion matrix heatmap (Chart.js), per-class bar chart |
-| **Section 3: Per-image** | Thumbnail grid with ✓/✗ borders, filters (correct/incorrect, class, subset), sort, pagination, detail view |
-| **Collapsible UI** | Alpine.js collapsible/expandable sections |
+| **Top Card 1: Hardware + Config** | Checkpoint dropdown (existing only), split subset checklist, batch size, device, Evaluate/Reset buttons |
+| **Top Card 2: Metrics** | Aggregate metrics table, confusion matrix heatmap (Chart.js), per-class bar chart |
+| **Bottom Section: Per-image** | Thumbnail grid with ✓/✗ borders, filters (correct/incorrect, class, subset), sort, pagination, detail view |
+| **Collapsible UI** | Alpine.js collapse only for the per-image section |
 
 ### Acceptance Criteria
 

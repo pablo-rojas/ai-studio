@@ -8,7 +8,6 @@
   "failed": "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200",
 } %}
 {% set default_subsets = evaluation_config.split_subsets if evaluation_config and evaluation_config.split_subsets else ["test"] %}
-{% set metrics_open = aggregate is not none %}
 {% set results_open = results_page.total_items > 0 %}
 
 <section
@@ -17,258 +16,317 @@
   data-evaluation-project-id="{{ project_id }}"
   data-evaluation-experiment-id="{{ experiment.id }}"
 >
-  <article x-data="{ open: true }" class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-    <button
-      type="button"
-      @click="open = !open"
-      class="flex w-full items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 text-left dark:border-slate-800"
-    >
-      <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">Configuration</span>
-      <div class="flex items-center gap-3">
+  <div data-eval-top-cards class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <article data-eval-card="hardware" class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <header class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Hardware and Configuration</h2>
         <span class="rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide {{ status_classes.get(status, status_classes['not_started']) }}">
           {% if status == "not_started" %}not started{% else %}{{ status }}{% endif %}
         </span>
-        <span class="text-xs text-slate-500 transition-transform dark:text-slate-400" :class="{ 'rotate-180': open }">v</span>
-      </div>
-    </button>
+      </header>
 
-    <div x-show="open" class="space-y-4 p-4">
-      {% if not has_evaluation %}
-      <form
-        hx-post="/api/evaluation/{{ project_id }}/{{ experiment.id }}"
-        hx-target="#evaluation-workspace"
-        hx-swap="outerHTML"
-        class="space-y-4"
-      >
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <label class="space-y-1">
-            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</span>
-            <select
-              name="checkpoint"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            >
-              {% if checkpoints %}
-                {% for checkpoint in checkpoints %}
-                <option value="{{ checkpoint }}" {% if evaluation_config.checkpoint == checkpoint %}selected{% endif %}>{{ checkpoint }}</option>
-                {% endfor %}
-              {% else %}
-              <option value="{{ evaluation_config.checkpoint }}">{{ evaluation_config.checkpoint }}</option>
-              {% endif %}
-            </select>
-          </label>
-
-          <label class="space-y-1">
-            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Device</span>
-            <select
-              name="device"
-              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            >
-              {% for device in available_devices %}
-              <option value="{{ device.id }}" {% if evaluation_config.device == device.id %}selected{% endif %}>{{ device.label }}</option>
-              {% endfor %}
-            </select>
-          </label>
-        </div>
-
-        <label class="block space-y-1">
-          <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Batch Size</span>
-          <input
-            type="number"
-            name="batch_size"
-            value="{{ evaluation_config.batch_size }}"
-            min="1"
-            max="1024"
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          >
-        </label>
-
-        <fieldset class="space-y-2">
-          <legend class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Split Subsets</legend>
-          <div class="flex flex-wrap gap-2">
-            {% for subset in subset_options %}
-            <label class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
-              <input
-                type="checkbox"
-                name="split_subsets[]"
-                value="{{ subset.name }}"
-                {% if subset.name in default_subsets %}checked{% endif %}
-                class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950"
-              >
-              <span>
-                {{ subset.label }}
-                {% if subset.count is not none %}
-                <span class="text-xs text-slate-500 dark:text-slate-400">({{ subset.count }})</span>
-                {% endif %}
-              </span>
-            </label>
-            {% endfor %}
-          </div>
-        </fieldset>
-
-        <div class="flex items-center gap-2">
-          <button
-            type="submit"
-            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
-          >
-            Evaluate
-          </button>
-        </div>
-      </form>
-      {% else %}
-      <div class="space-y-3 text-sm">
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</p>
-            <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.checkpoint }}</p>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Device</p>
-            <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.device }}</p>
-          </div>
-        </div>
-
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-          <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Split Subsets</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.split_subsets | join(", ") }}</p>
-        </div>
-
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-          <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Batch Size</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.batch_size }}</p>
-        </div>
-
-        {% if status == "running" %}
-        {% set progress_total = evaluation.progress.total if evaluation.progress.total > 0 else 1 %}
-        {% set progress_percent = (evaluation.progress.processed / progress_total) * 100 %}
-        <div class="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 dark:border-sky-900 dark:bg-sky-950/30">
-          <p class="text-sm font-medium text-sky-800 dark:text-sky-200">
-            Evaluating: {{ evaluation.progress.processed }} / {{ evaluation.progress.total }} images
-          </p>
-          <div class="mt-2 h-2 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/50">
-            <div class="h-full rounded-full bg-sky-500 dark:bg-sky-400" style="width: {{ "%.1f"|format(progress_percent) }}%;"></div>
-          </div>
-        </div>
-        {% endif %}
-
-        {% if status == "failed" and evaluation.error %}
-        <div class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-          {{ evaluation.error }}
-        </div>
-        {% endif %}
-
-        {% if status in ["completed", "failed"] %}
-        <button
-          type="button"
-          hx-delete="/api/evaluation/{{ project_id }}/{{ experiment.id }}"
+      <div class="space-y-4 p-4">
+        {% if not has_evaluation %}
+        <form
+          hx-post="/api/evaluation/{{ project_id }}/{{ experiment.id }}"
           hx-target="#evaluation-workspace"
           hx-swap="outerHTML"
-          class="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/30"
+          class="space-y-4"
         >
-          Reset Evaluation
-        </button>
-        {% endif %}
-      </div>
-      {% endif %}
-    </div>
-  </article>
-
-  <article x-data="{ open: {{ 'true' if metrics_open else 'false' }} }" class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-    <button
-      type="button"
-      @click="open = !open"
-      class="flex w-full items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 text-left dark:border-slate-800"
-    >
-      <span class="text-sm font-semibold text-slate-900 dark:text-slate-100">Metrics and Visualizations</span>
-      <span class="text-xs text-slate-500 transition-transform dark:text-slate-400" :class="{ 'rotate-180': open }">v</span>
-    </button>
-
-    <div x-show="open" class="space-y-4 p-4">
-      {% if aggregate %}
-      <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-        <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-700">
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-            <tr><th class="bg-slate-50 px-3 py-2 text-left font-medium text-slate-600 dark:bg-slate-900 dark:text-slate-300">Accuracy</th><td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.accuracy * 100) }}%</td></tr>
-            <tr><th class="bg-slate-50 px-3 py-2 text-left font-medium text-slate-600 dark:bg-slate-900 dark:text-slate-300">F1 (macro)</th><td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.f1_macro * 100) }}%</td></tr>
-            <tr><th class="bg-slate-50 px-3 py-2 text-left font-medium text-slate-600 dark:bg-slate-900 dark:text-slate-300">Precision (macro)</th><td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.precision_macro * 100) }}%</td></tr>
-            <tr><th class="bg-slate-50 px-3 py-2 text-left font-medium text-slate-600 dark:bg-slate-900 dark:text-slate-300">Recall (macro)</th><td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.recall_macro * 100) }}%</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      {% set ns = namespace(max_cell=0) %}
-      {% for row in aggregate.confusion_matrix %}
-        {% for value in row %}
-          {% if value > ns.max_cell %}
-            {% set ns.max_cell = value %}
-          {% endif %}
-        {% endfor %}
-      {% endfor %}
-      {% set max_cell = ns.max_cell if ns.max_cell > 0 else 1 %}
-
-      <div class="space-y-2">
-        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Confusion Matrix Heatmap</h3>
-        <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-          <table class="min-w-full border-separate border-spacing-0 text-center text-xs">
-            <thead>
-              <tr>
-                <th class="bg-slate-100 px-2 py-2 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">GT \\ Pred</th>
-                {% for _ in range(aggregate.confusion_matrix | length) %}
-                <th class="bg-slate-100 px-2 py-2 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">P{{ loop.index0 }}</th>
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in aggregate.confusion_matrix %}
-              {% set row_index = loop.index0 %}
-              <tr>
-                <th class="bg-slate-100 px-2 py-2 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">G{{ row_index }}</th>
-                {% for cell in row %}
-                {% set col_index = loop.index0 %}
-                {% set intensity = cell / max_cell %}
-                {% if row_index == col_index %}
-                  {% set alpha = (0.15 + (0.65 * intensity)) %}
-                  {% set background = "rgba(16, 185, 129, " ~ ("%.3f"|format(alpha)) ~ ")" %}
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label class="space-y-1">
+              <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</span>
+              <select
+                name="checkpoint"
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                {% if checkpoints %}
+                  {% for checkpoint in checkpoints %}
+                  <option value="{{ checkpoint }}" {% if evaluation_config.checkpoint == checkpoint %}selected{% endif %}>{{ checkpoint }}</option>
+                  {% endfor %}
                 {% else %}
-                  {% set alpha = (0.15 + (0.65 * intensity)) %}
-                  {% set background = "rgba(244, 63, 94, " ~ ("%.3f"|format(alpha)) ~ ")" %}
+                <option value="{{ evaluation_config.checkpoint }}">{{ evaluation_config.checkpoint }}</option>
                 {% endif %}
-                <td class="border border-white px-2 py-2 font-medium text-slate-900 dark:text-slate-100" style="background-color: {{ background }};">{{ cell }}</td>
-                {% endfor %}
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </select>
+            </label>
 
-      <div class="space-y-2">
-        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Per-Class F1</h3>
-        <div class="space-y-2">
-          {% for class_name, class_metrics in aggregate.per_class.items() %}
-          <div class="rounded-md border border-slate-200 p-3 dark:border-slate-700">
-            <div class="mb-1 flex items-center justify-between gap-2 text-xs">
-              <span class="truncate font-medium text-slate-800 dark:text-slate-200">{{ class_name }}</span>
-              <span class="text-slate-600 dark:text-slate-300">{{ "%.2f"|format(class_metrics.f1 * 100) }}% F1</span>
+            <label class="space-y-1">
+              <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Device</span>
+              <select
+                name="device"
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                {% for device in available_devices %}
+                <option value="{{ device.id }}" {% if evaluation_config.device == device.id %}selected{% endif %}>{{ device.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+
+          <label class="block space-y-1">
+            <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Batch Size</span>
+            <input
+              type="number"
+              name="batch_size"
+              value="{{ evaluation_config.batch_size }}"
+              min="1"
+              max="1024"
+              class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+          </label>
+
+          <fieldset class="space-y-2">
+            <legend class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Split Subsets</legend>
+            <div class="flex flex-wrap gap-2">
+              {% for subset in subset_options %}
+              <label class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  name="split_subsets[]"
+                  value="{{ subset.name }}"
+                  {% if subset.name in default_subsets %}checked{% endif %}
+                  class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950"
+                >
+                <span>
+                  {{ subset.label }}
+                  {% if subset.count is not none %}
+                  <span class="text-xs text-slate-500 dark:text-slate-400">({{ subset.count }})</span>
+                  {% endif %}
+                </span>
+              </label>
+              {% endfor %}
             </div>
-            <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-              <div class="h-full rounded-full bg-blue-500 dark:bg-blue-400" style="width: {{ "%.1f"|format(class_metrics.f1 * 100) }}%;"></div>
+          </fieldset>
+
+          <div class="flex items-center gap-2">
+            <button
+              type="submit"
+              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              Evaluate
+            </button>
+          </div>
+        </form>
+        {% else %}
+        <div class="space-y-3 text-sm">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</p>
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.checkpoint }}</p>
             </div>
-            <div class="mt-1 flex flex-wrap gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-              <span>Precision {{ "%.1f"|format(class_metrics.precision * 100) }}%</span>
-              <span>Recall {{ "%.1f"|format(class_metrics.recall * 100) }}%</span>
-              <span>Support {{ class_metrics.support }}</span>
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Device</p>
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.device }}</p>
             </div>
           </div>
-          {% endfor %}
+
+          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Split Subsets</p>
+            <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.split_subsets | join(", ") }}</p>
+          </div>
+
+          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Batch Size</p>
+            <p class="font-medium text-slate-900 dark:text-slate-100">{{ evaluation.batch_size }}</p>
+          </div>
+
+          {% if status == "running" %}
+          {% set progress_total = evaluation.progress.total if evaluation.progress.total > 0 else 1 %}
+          {% set progress_percent = (evaluation.progress.processed / progress_total) * 100 %}
+          <div class="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 dark:border-sky-900 dark:bg-sky-950/30">
+            <p class="text-sm font-medium text-sky-800 dark:text-sky-200">
+              Evaluating: {{ evaluation.progress.processed }} / {{ evaluation.progress.total }} images
+            </p>
+            <div class="mt-2 h-2 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/50">
+              <div class="h-full rounded-full bg-sky-500 dark:bg-sky-400" style="width: {{ "%.1f"|format(progress_percent) }}%;"></div>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if status == "failed" and evaluation.error %}
+          <div class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+            {{ evaluation.error }}
+          </div>
+          {% endif %}
+
+          {% if status in ["completed", "failed"] %}
+          <button
+            type="button"
+            hx-delete="/api/evaluation/{{ project_id }}/{{ experiment.id }}"
+            hx-target="#evaluation-workspace"
+            hx-swap="outerHTML"
+            class="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/30"
+          >
+            Reset Evaluation
+          </button>
+          {% endif %}
         </div>
+        {% endif %}
       </div>
-      {% else %}
-      <p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-        No aggregate metrics yet. Run evaluation to populate this section.
-      </p>
-      {% endif %}
-    </div>
-  </article>
+    </article>
+
+    <article data-eval-card="metrics" class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <header class="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Metrics and Visualizations</h2>
+      </header>
+
+      <div class="p-4">
+        <div class="w-full space-y-4">
+        {% if aggregate %}
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section data-eval-kpi="accuracy" class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Accuracy</p>
+            <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.accuracy * 100) }}%</p>
+          </section>
+          <section data-eval-kpi="f1_macro" class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">F1 (Macro)</p>
+            <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.f1_macro * 100) }}%</p>
+          </section>
+          <section data-eval-kpi="precision_macro" class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Precision (Macro)</p>
+            <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.precision_macro * 100) }}%</p>
+          </section>
+          <section data-eval-kpi="recall_macro" class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recall (Macro)</p>
+            <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{{ "%.2f"|format(aggregate.recall_macro * 100) }}%</p>
+          </section>
+        </div>
+
+        {% set matrix_size = aggregate.confusion_matrix | length %}
+
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+          <section class="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Confusion Matrix Heatmap</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Rows: Ground Truth · Columns: Predicted</p>
+            </div>
+            <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div class="min-w-full px-3 py-3">
+                <table data-eval-confusion-matrix class="mx-auto w-max border-separate border-spacing-[3px] text-center text-xs">
+                  <thead>
+                    <tr>
+                      <th class="sticky left-0 top-0 z-30 h-12 min-w-20 max-w-40 bg-slate-100 px-2 py-2 text-left text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        GT \\ Pred
+                      </th>
+                      {% for col_index in range(matrix_size) %}
+                      {% if class_options and (class_options | length) > col_index %}
+                      {% set col_label = class_options[col_index] %}
+                      {% else %}
+                      {% set col_label = "C" ~ col_index %}
+                      {% endif %}
+                      <th
+                        data-eval-cm-col-label="{{ col_label }}"
+                        class="sticky top-0 z-20 h-12 min-w-12 max-w-36 bg-slate-100 px-2 py-2 text-center text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                        title="{{ col_label }}"
+                      >
+                        <span class="block truncate">{{ col_label }}</span>
+                      </th>
+                      {% endfor %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in aggregate.confusion_matrix %}
+                    {% set row_index = loop.index0 %}
+                    {% if class_options and (class_options | length) > row_index %}
+                    {% set row_label = class_options[row_index] %}
+                    {% else %}
+                    {% set row_label = "C" ~ row_index %}
+                    {% endif %}
+                    {% set row_total = row | sum %}
+                    <tr>
+                      <th
+                        data-eval-cm-row-label="{{ row_label }}"
+                        class="sticky left-0 z-10 h-12 min-w-20 max-w-40 bg-slate-100 px-2 py-2 text-left text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                        title="{{ row_label }}"
+                      >
+                        <span class="block truncate">{{ row_label }}</span>
+                      </th>
+                      {% for cell in row %}
+                      {% set col_index = loop.index0 %}
+                      {% set intensity = (cell / row_total) if row_total > 0 else 0 %}
+                      {% set alpha = (0.08 + (0.82 * intensity)) %}
+                      {% if row_index == col_index %}
+                      {% set background = "rgba(16, 185, 129, " ~ ("%.3f"|format(alpha)) ~ ")" %}
+                      {% else %}
+                      {% set background = "rgba(244, 63, 94, " ~ ("%.3f"|format(alpha)) ~ ")" %}
+                      {% endif %}
+                      <td
+                        class="h-12 min-w-12 border border-white px-2 py-2 text-center text-xs font-semibold text-slate-900 dark:border-slate-900 dark:text-slate-100"
+                        style="background-color: {{ background }};"
+                      >
+                        {{ cell }}
+                      </td>
+                      {% endfor %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Per-Class Metrics</h3>
+            {% set per_class_rows = namespace(items=[]) %}
+            {% for class_name, class_metrics in aggregate.per_class.items() %}
+              {% set per_class_rows.items = per_class_rows.items + [{
+                "class_name": class_name,
+                "f1": class_metrics.f1,
+                "precision": class_metrics.precision,
+                "recall": class_metrics.recall,
+                "support": class_metrics.support
+              }] %}
+            {% endfor %}
+            {% if per_class_rows.items %}
+            <div class="max-h-[26rem] overflow-y-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+              <table data-eval-per-class-table class="min-w-full divide-y divide-slate-200 text-xs dark:divide-slate-700">
+                <thead class="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800">
+                  <tr>
+                    <th class="px-2 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Class</th>
+                    <th class="px-2 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">F1</th>
+                    <th class="px-2 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Precision</th>
+                    <th class="px-2 py-2 text-left font-semibold text-slate-600 dark:text-slate-300">Recall</th>
+                    <th class="px-2 py-2 text-right font-semibold text-slate-600 dark:text-slate-300">Support</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                  {% for row in per_class_rows.items | sort(attribute="f1", reverse=true) %}
+                  <tr>
+                    <td class="max-w-40 px-2 py-2 font-medium text-slate-900 dark:text-slate-100">
+                      <span class="block truncate" title="{{ row.class_name }}">{{ row.class_name }}</span>
+                    </td>
+                    <td class="px-2 py-2 text-slate-900 dark:text-slate-100">
+                      <div class="space-y-1">
+                        <span class="block font-medium">{{ "%.2f"|format(row.f1 * 100) }}%</span>
+                        <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                          <div class="h-full rounded-full bg-sky-500 dark:bg-sky-400" style="width: {{ "%.1f"|format(row.f1 * 100) }}%;"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-2 py-2 font-medium text-slate-900 dark:text-slate-100">{{ "%.2f"|format(row.precision * 100) }}%</td>
+                    <td class="px-2 py-2 font-medium text-slate-900 dark:text-slate-100">{{ "%.2f"|format(row.recall * 100) }}%</td>
+                    <td class="px-2 py-2 text-right font-medium text-slate-900 dark:text-slate-100">{{ row.support }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <p class="rounded-lg border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              Per-class metrics are not available yet.
+            </p>
+            {% endif %}
+          </section>
+        </div>
+        {% else %}
+        <p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+          No aggregate metrics yet. Run evaluation to populate this section.
+        </p>
+        {% endif %}
+      </div>
+      </div>
+    </article>
+  </div>
 
   <article x-data="{ open: {{ 'true' if results_open else 'false' }} }" class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
     <button

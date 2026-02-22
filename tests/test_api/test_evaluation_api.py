@@ -211,7 +211,10 @@ async def test_evaluation_hx_endpoints_render_workspace_and_results_fragments(
     )
     assert detail_response.status_code == 200
     assert 'id="evaluation-workspace"' in detail_response.text
-    assert "Configuration" in detail_response.text
+    assert "Hardware and Configuration" in detail_response.text
+    assert "data-eval-top-cards" in detail_response.text
+    assert 'data-eval-card="hardware"' in detail_response.text
+    assert 'data-eval-card="metrics"' in detail_response.text
     assert "Per-Image Results" in detail_response.text
     assert "Reset Evaluation" in detail_response.text
 

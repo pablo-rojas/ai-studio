@@ -448,16 +448,163 @@ async def test_evaluation_page_renders_completed_experiment_workspace_and_result
     assert "Eval Ready" in response.text
     assert "Still Training" not in response.text
     assert 'id="evaluation-workspace"' in response.text
-    assert "Configuration" in response.text
+    assert "Hardware and Configuration" in response.text
     assert "Metrics and Visualizations" in response.text
     assert "Per-Image Results" in response.text
+    assert "data-eval-top-cards" in response.text
+    assert 'data-eval-card="hardware"' in response.text
+    assert 'data-eval-card="metrics"' in response.text
     assert "Confusion Matrix Heatmap" in response.text
+    assert 'data-eval-kpi="accuracy"' in response.text
+    assert 'data-eval-kpi="f1_macro"' in response.text
+    assert 'data-eval-kpi="precision_macro"' in response.text
+    assert 'data-eval-kpi="recall_macro"' in response.text
+    assert "data-eval-confusion-matrix" in response.text
+    assert "data-eval-per-class-table" in response.text
+    assert 'data-eval-cm-col-label="cats"' in response.text
+    assert 'data-eval-cm-col-label="dogs"' in response.text
+    assert "P0" not in response.text
+    assert "G0" not in response.text
     assert "Class probabilities" in response.text
     assert "Reset Evaluation" in response.text
     assert f"/api/evaluation/{project_id}/{completed_experiment_id}" in response.text
     assert f"/api/evaluation/{project_id}/{completed_experiment_id}/results" in response.text
     assert f"/api/datasets/{project_id}/thumbnails/cat_page_000.png" in response.text
     assert f"/projects/{project_id}/evaluation" in response.text
+
+
+@pytest.mark.asyncio
+async def test_evaluation_page_confusion_matrix_uses_class_labels(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Evaluation Matrix Labels Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "evaluation_matrix_labels_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    completed_experiment_response = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Eval Matrix Labels", "split_name": "80-10-10"},
+    )
+    assert completed_experiment_response.status_code == 200
+    completed_experiment_id = completed_experiment_response.json()["data"]["id"]
+    _mark_experiment_completed_and_seed_checkpoints(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+    )
+    _seed_completed_evaluation_artifacts(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+    )
+
+    response = await test_client.get(
+        f"/projects/{project_id}/evaluation?experiment_id={completed_experiment_id}"
+    )
+
+    assert response.status_code == 200
+    assert "data-eval-confusion-matrix" in response.text
+    assert 'data-eval-cm-col-label="cats"' in response.text
+    assert 'data-eval-cm-col-label="dogs"' in response.text
+    assert 'data-eval-cm-row-label="cats"' in response.text
+    assert 'data-eval-cm-row-label="dogs"' in response.text
+
+
+@pytest.mark.asyncio
+async def test_evaluation_page_confusion_matrix_handles_zero_support_rows(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Evaluation Zero Support Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "evaluation_zero_support_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    completed_experiment_response = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Eval Zero Support", "split_name": "80-10-10"},
+    )
+    assert completed_experiment_response.status_code == 200
+    completed_experiment_id = completed_experiment_response.json()["data"]["id"]
+    _mark_experiment_completed_and_seed_checkpoints(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+    )
+
+    _seed_completed_evaluation_artifacts(
+        test_client,
+        project_id=project_id,
+        experiment_id=completed_experiment_id,
+        aggregate_override=ClassificationAggregateMetrics(
+            accuracy=0.5,
+            precision_macro=0.5,
+            recall_macro=0.25,
+            f1_macro=0.33,
+            confusion_matrix=[[0, 0], [1, 1]],
+            per_class={
+                "cats": {"precision": 0.0, "recall": 0.0, "f1": 0.0, "support": 0},
+                "dogs": {"precision": 1.0, "recall": 0.5, "f1": 0.67, "support": 2},
+            },
+        ),
+    )
+
+    response = await test_client.get(
+        f"/projects/{project_id}/evaluation?experiment_id={completed_experiment_id}"
+    )
+
+    assert response.status_code == 200
+    assert "Confusion Matrix Heatmap" in response.text
+    assert "data-eval-confusion-matrix" in response.text
+    assert 'data-eval-cm-row-label="cats"' in response.text
 
 
 def _mark_experiment_completed_and_seed_checkpoints(
@@ -492,6 +639,7 @@ def _seed_completed_evaluation_artifacts(
     *,
     project_id: str,
     experiment_id: str,
+    aggregate_override: ClassificationAggregateMetrics | None = None,
 ) -> None:
     app = test_client._transport.app
     evaluation_service = app.state.evaluation_service
@@ -509,7 +657,7 @@ def _seed_completed_evaluation_artifacts(
         completed_at=now,
         error=None,
     )
-    aggregate = ClassificationAggregateMetrics(
+    aggregate = aggregate_override or ClassificationAggregateMetrics(
         accuracy=0.75,
         precision_macro=0.75,
         recall_macro=0.75,

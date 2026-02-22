@@ -25,7 +25,7 @@ Two-column grid (`grid-cols-[260px_1fr]`), identical structure to the Training p
 │  ┌──────────────┬──────────────────────────────────────────┐  │
 │  │  Experiments  │   Right Panel                           │  │
 │  │  (completed)  │                                         │  │
-│  │               │  ┌─ § Config ──────────────── [▼] ───┐  │  │
+│  │               │  ┌─ Hardware & Config ─────────────┐  │  │
 │  │ ┌───────────┐ │  │ Checkpoint: [best ▼]              │  │  │
 │  │ │►ResNet50  │ │  │ Subsets:  ☑ test ☐ val ☐ train    │  │  │
 │  │ │ ✓ 95.6%   │ │  │ Batch:   [32___]                  │  │  │
@@ -33,7 +33,7 @@ Two-column grid (`grid-cols-[260px_1fr]`), identical structure to the Training p
 │  │               │  │          [Evaluate] [Reset]        │  │  │
 │  │ ┌───────────┐ │  └───────────────────────────────────┘  │  │
 │  │ │ EfficNet  │ │                                         │  │
-│  │ │ ✓ 94.2%   │ │  ┌─ § Metrics ────────────── [▼] ───┐  │  │
+│  │ │ ✓ 94.2%   │ │  ┌─ Metrics & Visualizations ──────┐  │  │
 │  │ └───────────┘ │  │ Accuracy: 95.6%  F1: 95.1%        │  │  │
 │  │               │  │ Precision: 94.8% Recall: 95.3%    │  │  │
 │  │               │  │                                    │  │  │
@@ -78,9 +78,20 @@ Click to select → loads right panel content via HTMX (`hx-get` targeting `#eva
 
 ---
 
-## 4. Right Panel — Three Collapsible Sections
+## 4. Right Panel — Two Top Cards + One Collapsible Section
 
-The right panel (`id="evaluation-workspace"`) contains 3 collapsible/expandable sections using Alpine.js `x-data`/`x-show`. Each section has a header bar with a toggle chevron.
+The right panel (`id="evaluation-workspace"`) has:
+
+1. A responsive top row (`data-eval-top-cards`) rendered as two **non-collapsible** cards:
+   - Card 1: `data-eval-card="hardware"` (hardware + evaluation controls)
+   - Card 2: `data-eval-card="metrics"` (aggregate metrics + visualizations)
+2. A bottom **collapsible** per-image results section.
+
+Top row layout classes:
+
+```html
+<div data-eval-top-cards class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+```
 
 ### 4.1 Section 1: Evaluation Configuration (always visible)
 
@@ -105,9 +116,9 @@ Evaluating: 65/120 images
 
 When evaluation is already completed, the config section displays the settings used (read-only) plus the Reset button.
 
-### 4.2 Section 2: Metrics & Visualizations (collapsed when no results)
+### 4.2 Section 2: Metrics & Visualizations (always visible)
 
-Expanded by default when evaluation results exist, collapsed/hidden when no evaluation has been run yet.
+This is a non-collapsible card (`data-eval-card="metrics"`). If no evaluation exists yet, it shows an empty informational state.
 
 Contents:
 - **Aggregate metrics table**: Accuracy, F1, Precision, Recall (see [../../07-evaluation/02-aggregate-metrics.md](../../07-evaluation/02-aggregate-metrics.md))
@@ -200,11 +211,11 @@ For detection tasks: shows predicted boxes (solid, colored) overlaid with ground
         hx-swap="outerHTML">
 ```
 
-### Collapsible Sections (Alpine.js)
+### Per-Image Collapsible Section (Alpine.js)
 ```html
 <div x-data="{ open: true }">
   <button @click="open = !open" class="...">
-    <span>Metrics & Visualizations</span>
+    <span>Per-Image Results</span>
     <svg :class="{ 'rotate-180': open }" ...>▼</svg>
   </button>
   <div x-show="open" x-collapse>
@@ -228,7 +239,7 @@ For detection tasks: shows predicted boxes (solid, colored) overlaid with ground
 |----------|---------|
 | `pages/evaluation.html` | Full page (extends `base.html`), 2-column grid |
 | `fragments/evaluation_experiment_list.html` | Left panel: completed experiments list |
-| `fragments/evaluation_detail.html` | Right panel: 3 collapsible sections |
+| `fragments/evaluation_detail.html` | Right panel: top non-collapsible cards + collapsible per-image section |
 | `fragments/evaluation_empty.html` | Right panel empty state |
 | `fragments/evaluation_results_grid.html` | Per-image thumbnail grid (HTMX-loaded) |
 
