@@ -4,6 +4,7 @@ from fastapi import Request
 
 from app.core.dataset_service import DatasetService
 from app.core.evaluation_service import EvaluationService
+from app.core.export_service import ExportService
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
 from app.core.training_service import TrainingService
@@ -32,3 +33,8 @@ def get_training_service(request: Request) -> TrainingService:
 def get_evaluation_service(request: Request) -> EvaluationService:
     """Resolve the shared evaluation service instance from app state."""
     return request.app.state.evaluation_service
+
+
+def get_export_service(request: Request) -> ExportService:
+    """Resolve the shared export service instance from app state."""
+    return request.app.state.export_service
