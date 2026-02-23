@@ -14,6 +14,7 @@ from torchvision.models import (
     ResNet18_Weights,
     ResNet34_Weights,
     ResNet50_Weights,
+    VGG16_Weights,
     efficientnet_b0,
     efficientnet_b3,
     mobilenet_v3_large,
@@ -21,6 +22,13 @@ from torchvision.models import (
     resnet18,
     resnet34,
     resnet50,
+)
+from torchvision.models.detection import (
+    fasterrcnn_resnet50_fpn,
+    fcos_resnet50_fpn,
+    retinanet_resnet50_fpn,
+    ssd300_vgg16,
+    ssdlite320_mobilenet_v3_large,
 )
 
 from app.models.heads.classification import ClassificationHead
@@ -42,7 +50,7 @@ TaskType = Literal[
     "regression",
 ]
 
-ACTIVE_PHASES: tuple[int, ...] = tuple(range(1, 10))
+ACTIVE_PHASES: tuple[int, ...] = tuple(range(1, 20))
 
 TASK_PHASE_BY_TYPE: dict[TaskType, int] = {
     "classification": 8,
@@ -62,6 +70,14 @@ CLASSIFICATION_BACKBONES: tuple[str, ...] = (
     "efficientnet_b3",
     "mobilenet_v3_small",
     "mobilenet_v3_large",
+)
+
+OBJECT_DETECTION_ARCHITECTURES: tuple[str, ...] = (
+    "fasterrcnn_resnet50",
+    "fcos_resnet50",
+    "retinanet_resnet50",
+    "ssd300_vgg16",
+    "ssdlite_mobilenet_v3",
 )
 
 
@@ -134,6 +150,56 @@ _CLASSIFICATION_DEFAULT_HYPERPARAMETERS = HyperparameterConfig(
     dropout=0.2,
 )
 
+_OBJECT_DETECTION_DEFAULT_AUGMENTATIONS = AugmentationConfig(
+    train=[
+        AugmentationStep(name="RandomHorizontalFlip", params={"p": 0.5}),
+        AugmentationStep(name="RandomPhotometricDistort"),
+        AugmentationStep(
+            name="RandomZoomOut",
+            params={"fill": [123.0, 117.0, 104.0], "p": 0.5},
+        ),
+        AugmentationStep(name="RandomIoUCrop"),
+        AugmentationStep(name="Resize", params={"size": [640, 640]}),
+        AugmentationStep(name="ToImage"),
+        AugmentationStep(name="SanitizeBoundingBoxes"),
+        AugmentationStep(
+            name="Normalize",
+            params={
+                "mean": [0.485, 0.456, 0.406],
+                "std": [0.229, 0.224, 0.225],
+            },
+        ),
+    ],
+    val=[
+        AugmentationStep(name="Resize", params={"size": [640, 640]}),
+        AugmentationStep(name="ToImage"),
+        AugmentationStep(name="SanitizeBoundingBoxes"),
+        AugmentationStep(
+            name="Normalize",
+            params={
+                "mean": [0.485, 0.456, 0.406],
+                "std": [0.229, 0.224, 0.225],
+            },
+        ),
+    ],
+)
+
+_OBJECT_DETECTION_DEFAULT_HYPERPARAMETERS = HyperparameterConfig(
+    optimizer="sgd",
+    learning_rate=0.005,
+    weight_decay=0.0005,
+    momentum=0.9,
+    scheduler="step",
+    step_size=10,
+    gamma=0.1,
+    batch_size=8,
+    batch_multiplier=1,
+    max_epochs=50,
+    early_stopping_patience=15,
+    loss="default",
+    dropout=0.0,
+)
+
 TASK_REGISTRY: dict[TaskType, TaskConfig] = {
     "classification": TaskConfig(
         phase=8,
@@ -149,7 +215,18 @@ TASK_REGISTRY: dict[TaskType, TaskConfig] = {
         secondary_metrics=("precision", "recall", "f1", "confusion_matrix"),
         default_augmentations=_CLASSIFICATION_DEFAULT_AUGMENTATIONS,
         default_hyperparameters=_CLASSIFICATION_DEFAULT_HYPERPARAMETERS,
-    )
+    ),
+    "object_detection": TaskConfig(
+        phase=19,
+        annotation_types=("bbox",),
+        architectures=OBJECT_DETECTION_ARCHITECTURES,
+        default_loss="default",
+        available_losses=("default",),
+        primary_metric="mAP_50",
+        secondary_metrics=("mAP_50_95", "precision", "recall"),
+        default_augmentations=_OBJECT_DETECTION_DEFAULT_AUGMENTATIONS,
+        default_hyperparameters=_OBJECT_DETECTION_DEFAULT_HYPERPARAMETERS,
+    ),
 }
 
 ModelFactory = Callable[[ModelConfig, int], nn.Module]
@@ -214,9 +291,16 @@ def build_default_training_config(
         raise ValueError(f"Backbone '{selected_backbone}' is not available for task '{task}'.")
 
     hyperparameters = get_default_hyperparameters(task)
+    default_head_by_task: dict[TaskType, str] = {
+        "classification": "classification",
+        "object_detection": "object_detection",
+    }
+    default_head = default_head_by_task.get(task)
+    if default_head is None:
+        raise ValueError(f"Task '{task}' does not define a default model head yet.")
     model = ModelConfig(
         backbone=selected_backbone,
-        head="classification",
+        head=default_head,
         pretrained=True,
         freeze_backbone=False,
         dropout=hyperparameters.dropout,
@@ -273,8 +357,15 @@ def create_model(
     """Instantiate a model for the requested task and architecture."""
     if num_classes < 1:
         raise ValueError("num_classes must be at least 1.")
-    if config.head != "classification":
-        raise ValueError(f"Unsupported model head '{config.head}'.")
+    expected_head_by_task: dict[TaskType, str] = {
+        "classification": "classification",
+        "object_detection": "object_detection",
+    }
+    expected_head = expected_head_by_task.get(task)
+    if expected_head is None:
+        raise ValueError(f"Task '{task}' is not implemented yet.")
+    if config.head != expected_head:
+        raise ValueError(f"Task '{task}' requires model head '{expected_head}'.")
     if config.backbone != architecture:
         raise ValueError("ModelConfig.backbone must match the selected architecture.")
 
@@ -455,10 +546,107 @@ def _create_mobilenet_v3_large(config: ModelConfig, num_classes: int) -> nn.Modu
     )
 
 
+def _freeze_detection_backbone(model: nn.Module) -> None:
+    backbone = getattr(model, "backbone", None)
+    if isinstance(backbone, nn.Module):
+        _freeze_module(backbone)
+
+
+@register_architecture(
+    task="object_detection",
+    name="fasterrcnn_resnet50",
+    display_name="Faster R-CNN (ResNet-50 FPN)",
+    parameter_count_millions=41.8,
+    summary="Two-stage detector with strong baseline accuracy.",
+)
+def _create_fasterrcnn_resnet50(config: ModelConfig, num_classes: int) -> nn.Module:
+    model = fasterrcnn_resnet50_fpn(
+        weights=None,
+        weights_backbone=ResNet50_Weights.DEFAULT if config.pretrained else None,
+        num_classes=num_classes,
+    )
+    if config.freeze_backbone:
+        _freeze_detection_backbone(model)
+    return model
+
+
+@register_architecture(
+    task="object_detection",
+    name="fcos_resnet50",
+    display_name="FCOS (ResNet-50 FPN)",
+    parameter_count_millions=32.0,
+    summary="Anchor-free one-stage detector with balanced performance.",
+)
+def _create_fcos_resnet50(config: ModelConfig, num_classes: int) -> nn.Module:
+    model = fcos_resnet50_fpn(
+        weights=None,
+        weights_backbone=ResNet50_Weights.DEFAULT if config.pretrained else None,
+        num_classes=num_classes,
+    )
+    if config.freeze_backbone:
+        _freeze_detection_backbone(model)
+    return model
+
+
+@register_architecture(
+    task="object_detection",
+    name="retinanet_resnet50",
+    display_name="RetinaNet (ResNet-50 FPN)",
+    parameter_count_millions=34.0,
+    summary="One-stage focal-loss detector for class imbalance.",
+)
+def _create_retinanet_resnet50(config: ModelConfig, num_classes: int) -> nn.Module:
+    model = retinanet_resnet50_fpn(
+        weights=None,
+        weights_backbone=ResNet50_Weights.DEFAULT if config.pretrained else None,
+        num_classes=num_classes,
+    )
+    if config.freeze_backbone:
+        _freeze_detection_backbone(model)
+    return model
+
+
+@register_architecture(
+    task="object_detection",
+    name="ssd300_vgg16",
+    display_name="SSD300 (VGG16)",
+    parameter_count_millions=35.6,
+    summary="Classic SSD detector with fast inference.",
+)
+def _create_ssd300_vgg16(config: ModelConfig, num_classes: int) -> nn.Module:
+    model = ssd300_vgg16(
+        weights=None,
+        weights_backbone=VGG16_Weights.IMAGENET1K_FEATURES if config.pretrained else None,
+        num_classes=num_classes,
+    )
+    if config.freeze_backbone:
+        _freeze_detection_backbone(model)
+    return model
+
+
+@register_architecture(
+    task="object_detection",
+    name="ssdlite_mobilenet_v3",
+    display_name="SSDLite (MobileNetV3 Large)",
+    parameter_count_millions=3.4,
+    summary="Mobile-optimized one-stage detector.",
+)
+def _create_ssdlite_mobilenet_v3(config: ModelConfig, num_classes: int) -> nn.Module:
+    model = ssdlite320_mobilenet_v3_large(
+        weights=None,
+        weights_backbone=MobileNet_V3_Large_Weights.DEFAULT if config.pretrained else None,
+        num_classes=num_classes,
+    )
+    if config.freeze_backbone:
+        _freeze_detection_backbone(model)
+    return model
+
+
 __all__ = [
     "ACTIVE_PHASES",
     "ARCHITECTURE_CATALOG",
     "CLASSIFICATION_BACKBONES",
+    "OBJECT_DETECTION_ARCHITECTURES",
     "TASK_PHASE_BY_TYPE",
     "TASK_REGISTRY",
     "ArchitectureSpec",

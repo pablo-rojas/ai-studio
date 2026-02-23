@@ -201,10 +201,100 @@ class ClassificationAggregateMetrics(BaseModel):
         return value
 
 
+class ObjectDetectionLabelRef(BaseModel):
+    """Object detection label reference with bbox payload."""
+
+    class_name: str = Field(min_length=1, max_length=120)
+    bbox: list[float] = Field(min_length=4, max_length=4)
+
+    @field_validator("class_name")
+    @classmethod
+    def normalize_class_name(cls, value: str) -> str:
+        """Normalize class names."""
+        normalized = " ".join(value.strip().split())
+        if not normalized:
+            raise ValueError("class_name cannot be empty.")
+        return normalized
+
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox(cls, value: list[float]) -> list[float]:
+        """Validate bbox geometry values."""
+        x, y, width, height = (float(item) for item in value)
+        if width <= 0 or height <= 0:
+            raise ValueError("bbox width and height must be positive.")
+        return [x, y, width, height]
+
+
+class ObjectDetectionPrediction(ObjectDetectionLabelRef):
+    """Predicted object detection payload for one box."""
+
+    confidence: float = Field(ge=0.0, le=1.0)
+    matched_gt_idx: int | None = Field(default=None, ge=0)
+
+
+class ObjectDetectionPerImageResult(BaseModel):
+    """Per-image evaluation payload for object detection tasks."""
+
+    filename: str = Field(min_length=1)
+    subset: EvaluationSubset
+    ground_truth: list[ObjectDetectionLabelRef] = Field(default_factory=list)
+    predictions: list[ObjectDetectionPrediction] = Field(default_factory=list)
+    num_gt: int = Field(ge=0)
+    num_predictions: int = Field(ge=0)
+    true_positives: int = Field(ge=0)
+    false_positives: int = Field(ge=0)
+    false_negatives: int = Field(ge=0)
+
+    @field_validator("filename")
+    @classmethod
+    def normalize_filename(cls, value: str) -> str:
+        """Ensure filenames are basename-only values."""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("filename cannot be empty.")
+        if "/" in normalized or "\\" in normalized:
+            raise ValueError("filename must not contain path separators.")
+        return normalized
+
+
+class ObjectDetectionAggregateMetrics(BaseModel):
+    """Aggregate metrics persisted in `aggregate.json` for object detection."""
+
+    mAP_50: float = Field(ge=0.0, le=1.0)  # noqa: N815
+    mAP_50_95: float = Field(ge=0.0, le=1.0)  # noqa: N815
+    precision: float = Field(ge=0.0, le=1.0)
+    recall: float = Field(ge=0.0, le=1.0)
+    per_class_AP: dict[str, float] = Field(default_factory=dict)  # noqa: N815
+    total_gt: int = Field(ge=0)
+    total_predictions: int = Field(ge=0)
+    total_tp: int = Field(ge=0)
+    total_fp: int = Field(ge=0)
+    total_fn: int = Field(ge=0)
+
+    @field_validator("per_class_AP")
+    @classmethod
+    def validate_per_class_ap(cls, value: dict[str, float]) -> dict[str, float]:
+        """Validate per-class AP values."""
+        cleaned: dict[str, float] = {}
+        for key, raw in value.items():
+            class_name = " ".join(key.strip().split())
+            if not class_name:
+                continue
+            score = float(raw)
+            if score < 0.0 or score > 1.0:
+                raise ValueError("per_class_AP values must be between 0 and 1.")
+            cleaned[class_name] = score
+        return cleaned
+
+
+EvaluationPerImageResult = ClassificationPerImageResult | ObjectDetectionPerImageResult
+
+
 class EvaluationResultsFile(BaseModel):
     """Top-level results payload persisted in `results.json`."""
 
-    results: list[ClassificationPerImageResult] = Field(default_factory=list)
+    results: list[EvaluationPerImageResult] = Field(default_factory=list)
 
 
 class EvaluationResultsQuery(BaseModel):
@@ -232,4 +322,4 @@ class EvaluationResultsPage(BaseModel):
     page_size: int = Field(ge=1)
     total_items: int = Field(ge=0)
     total_pages: int = Field(ge=0)
-    items: list[ClassificationPerImageResult] = Field(default_factory=list)
+    items: list[EvaluationPerImageResult] = Field(default_factory=list)

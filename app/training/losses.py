@@ -62,6 +62,8 @@ def list_losses(task: TaskType) -> list[str]:
     """List available loss names for a task."""
     if task == "classification":
         return ["cross_entropy", "focal", "label_smoothing_cross_entropy"]
+    if task == "object_detection":
+        return ["default"]
     return []
 
 
@@ -73,6 +75,12 @@ def build_loss(
     focal_gamma: float = 2.0,
 ) -> nn.Module:
     """Instantiate a task-specific loss module."""
+    if task == "object_detection":
+        if loss_name != "default":
+            raise ValueError(f"Unsupported loss '{loss_name}' for task '{task}'.")
+        # Torchvision detection models compute their losses internally.
+        return nn.Identity()
+
     if task != "classification":
         raise ValueError(f"Task '{task}' losses are not implemented yet.")
 

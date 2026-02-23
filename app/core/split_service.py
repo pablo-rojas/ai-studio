@@ -231,6 +231,15 @@ class SplitService:
                     continue
                 raise ValidationError("Anomaly dataset images must include anomaly annotations.")
 
+            if dataset.task == "object_detection":
+                bbox_label = None
+                for annotation in image.annotations:
+                    if annotation.type == "bbox":
+                        bbox_label = annotation.class_name
+                        break
+                labels.append(bbox_label or "__background__")
+                continue
+
             for annotation in image.annotations:
                 if annotation.type == "label":
                     labels.append(annotation.class_name)

@@ -142,6 +142,97 @@ def test_import_coco_classification_dataset(
     assert metadata.images[0].annotations[0].type == "label"
 
 
+def test_import_coco_object_detection_dataset(
+    project_service: ProjectService,
+    workspace: Path,
+) -> None:
+    project = project_service.create_project(
+        ProjectCreate(name="COCO OD Import Project", task="object_detection")
+    )
+    source_root = workspace.parent / "coco_od_source"
+    images_dir = source_root / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    _create_image(images_dir / "img_1.png", size=(400, 320), color=(100, 150, 200))
+    _create_image(images_dir / "img_2.png", size=(220, 180), color=(140, 90, 200))
+
+    coco_payload = {
+        "images": [
+            {"id": 1, "file_name": "img_1.png", "width": 400, "height": 320},
+            {"id": 2, "file_name": "img_2.png", "width": 220, "height": 180},
+        ],
+        "annotations": [
+            {"id": 10, "image_id": 1, "category_id": 8, "bbox": [50, 60, 100, 80]},
+            {"id": 11, "image_id": 1, "category_id": 5, "bbox": [5, 6, 20, 30]},
+            {"id": 12, "image_id": 2, "category_id": 5, "bbox": [10, 15, 40, 60]},
+        ],
+        "categories": [
+            {"id": 5, "name": "cat"},
+            {"id": 8, "name": "dog"},
+        ],
+    }
+    (source_root / "annotations.json").write_text(
+        json.dumps(coco_payload),
+        encoding="utf-8",
+    )
+
+    service = DatasetService(paths=WorkspacePaths(root=workspace), store=JsonStore())
+    metadata = service.import_dataset(
+        project.id,
+        DatasetImportRequest(
+            source_path=str(source_root),
+            source_format="coco",
+        ),
+    )
+
+    assert metadata.task == "object_detection"
+    assert metadata.source_format == "coco"
+    assert metadata.classes == ["cat", "dog"]
+    assert metadata.image_stats.num_images == 2
+    assert metadata.images[0].annotations[0].type == "bbox"
+    assert metadata.images[0].annotations[0].class_name == "dog"
+    assert metadata.images[0].annotations[1].class_name == "cat"
+
+
+def test_import_yolo_object_detection_dataset(
+    project_service: ProjectService,
+    workspace: Path,
+) -> None:
+    project = project_service.create_project(
+        ProjectCreate(name="YOLO OD Import Project", task="object_detection")
+    )
+    source_root = workspace.parent / "yolo_od_source"
+    images_dir = source_root / "images"
+    labels_dir = source_root / "labels"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    labels_dir.mkdir(parents=True, exist_ok=True)
+
+    _create_image(images_dir / "img_1.png", size=(200, 100), color=(60, 120, 180))
+    _create_image(images_dir / "img_2.png", size=(120, 120), color=(160, 90, 60))
+    (source_root / "classes.txt").write_text("car\nperson\n", encoding="utf-8")
+    (labels_dir / "img_1.txt").write_text("0 0.5 0.5 0.4 0.2\n", encoding="utf-8")
+
+    service = DatasetService(paths=WorkspacePaths(root=workspace), store=JsonStore())
+    metadata = service.import_dataset(
+        project.id,
+        DatasetImportRequest(source_path=str(source_root)),
+    )
+
+    assert metadata.task == "object_detection"
+    assert metadata.source_format == "yolo"
+    assert metadata.classes == ["car", "person"]
+    assert metadata.image_stats.num_images == 2
+
+    by_filename = {image.filename: image for image in metadata.images}
+    first = by_filename["img_1.png"]
+    assert len(first.annotations) == 1
+    assert first.annotations[0].type == "bbox"
+    assert first.annotations[0].class_name == "car"
+    assert first.annotations[0].bbox == [60.0, 40.0, 80.0, 20.0]
+
+    second = by_filename["img_2.png"]
+    assert second.annotations == []
+
+
 def test_list_images_defaults_to_first_split_when_available(
     project_service: ProjectService,
     workspace: Path,

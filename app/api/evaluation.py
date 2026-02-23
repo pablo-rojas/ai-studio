@@ -157,6 +157,12 @@ def _extract_primary_class_name(annotations: list[dict[str, Any]]) -> str | None
                 return class_name
 
     for annotation in annotations:
+        if annotation.get("type") == "bbox":
+            class_name = annotation.get("class_name")
+            if isinstance(class_name, str) and class_name:
+                return class_name
+
+    for annotation in annotations:
         if annotation.get("type") == "anomaly":
             return "anomalous" if bool(annotation.get("is_anomalous")) else "normal"
 

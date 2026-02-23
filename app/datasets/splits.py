@@ -351,6 +351,12 @@ def _extract_image_label(image: DatasetImage, *, task: str) -> str:
                 return _ANOMALOUS_LABEL if annotation.is_anomalous else _NORMAL_LABEL
         raise ValueError("Anomaly dataset images must include an anomaly annotation.")
 
+    if task == "object_detection":
+        for annotation in image.annotations:
+            if annotation.type == "bbox":
+                return annotation.class_name
+        return "__background__"
+
     for annotation in image.annotations:
         if annotation.type == "label":
             return annotation.class_name

@@ -15,6 +15,10 @@ def test_classification_losses_are_listed() -> None:
     ]
 
 
+def test_detection_losses_are_listed() -> None:
+    assert list_losses("object_detection") == ["default"]
+
+
 def test_build_cross_entropy_with_label_smoothing() -> None:
     loss = build_loss("classification", "cross_entropy", label_smoothing=0.1)
 
@@ -36,3 +40,8 @@ def test_build_focal_loss_and_compute_value() -> None:
 def test_build_loss_rejects_unknown_name() -> None:
     with pytest.raises(ValueError, match="Unsupported loss"):
         build_loss("classification", "invalid_loss")
+
+
+def test_build_detection_default_loss_returns_identity() -> None:
+    loss = build_loss("object_detection", "default")
+    assert isinstance(loss, nn.Identity)

@@ -27,8 +27,8 @@ def parse_coco_dataset(
     Raises:
         ValueError: If structure, schema, or content is invalid.
     """
-    if task != "classification":
-        raise ValueError("Phase 2 COCO import currently supports classification only.")
+    if task not in {"classification", "object_detection"}:
+        raise ValueError(f"COCO import is not supported for task '{task}'.")
 
     if not source_path.exists() or not source_path.is_dir():
         raise ValueError("COCO source path must be an existing directory.")
@@ -37,10 +37,135 @@ def parse_coco_dataset(
         source_path, annotation_filename=annotation_filename
     )
     payload = _read_coco_json(annotations_path)
-    return _parse_classification_payload(payload=payload, source_path=source_path)
+    if task == "classification":
+        return _parse_classification_payload(payload=payload, source_path=source_path)
+    return _parse_object_detection_payload(payload=payload, source_path=source_path)
 
 
 def _parse_classification_payload(*, payload: dict[str, Any], source_path: Path) -> ParsedDataset:
+    images_payload, annotations_payload, classes, category_id_to_class_id = _parse_shared_payload(
+        payload
+    )
+
+    annotations_by_image_id: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for annotation in annotations_payload:
+        if not isinstance(annotation, dict):
+            raise ValueError("COCO annotations entries must be objects.")
+        if annotation.get("iscrowd") == 1:
+            continue
+        image_id = annotation.get("image_id")
+        category_id = annotation.get("category_id")
+        if not isinstance(image_id, int) or not isinstance(category_id, int):
+            raise ValueError("COCO annotation entries must include image_id and category_id.")
+        if category_id not in category_id_to_class_id:
+            raise ValueError("COCO annotation category_id does not exist in categories.")
+        annotations_by_image_id[image_id].append(annotation)
+
+    parsed_images: list[ParsedImage] = []
+    for image in sorted(images_payload, key=lambda item: int(item.get("id", 0))):
+        if not isinstance(image, dict):
+            raise ValueError("COCO images entries must be objects.")
+        image_id = image.get("id")
+        file_name = image.get("file_name")
+        if not isinstance(image_id, int) or not isinstance(file_name, str):
+            raise ValueError("COCO image entries must include id and file_name.")
+        image_annotations = annotations_by_image_id.get(image_id, [])
+        if len(image_annotations) != 1:
+            raise ValueError(
+                "Classification COCO import requires exactly one annotation per image."
+            )
+
+        annotation = image_annotations[0]
+        category_id = int(annotation["category_id"])
+        class_id = category_id_to_class_id[category_id]
+        class_name = classes[class_id]
+
+        image_path = _resolve_coco_image_path(source_path, file_name=file_name)
+        width, height = read_image_size(image_path)
+        parsed_images.append(
+            ParsedImage(
+                source_path=image_path,
+                source_filename=Path(file_name).name,
+                width=width,
+                height=height,
+                annotations=[
+                    {
+                        "type": "label",
+                        "class_id": class_id,
+                        "class_name": class_name,
+                    }
+                ],
+            )
+        )
+
+    return ParsedDataset(
+        source_format="coco",
+        source_path=source_path,
+        task="classification",
+        classes=classes,
+        images=parsed_images,
+    )
+
+
+def _parse_object_detection_payload(*, payload: dict[str, Any], source_path: Path) -> ParsedDataset:
+    images_payload, annotations_payload, classes, category_id_to_class_id = _parse_shared_payload(
+        payload
+    )
+    annotations_by_image_id: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for annotation in annotations_payload:
+        if not isinstance(annotation, dict):
+            raise ValueError("COCO annotations entries must be objects.")
+        if annotation.get("iscrowd") == 1:
+            continue
+        image_id = annotation.get("image_id")
+        category_id = annotation.get("category_id")
+        if not isinstance(image_id, int) or not isinstance(category_id, int):
+            raise ValueError("COCO annotation entries must include image_id and category_id.")
+        if category_id not in category_id_to_class_id:
+            raise ValueError("COCO annotation category_id does not exist in categories.")
+        class_id = category_id_to_class_id[category_id]
+        bbox = _parse_bbox(annotation.get("bbox"))
+        annotations_by_image_id[image_id].append(
+            {
+                "type": "bbox",
+                "class_id": class_id,
+                "class_name": classes[class_id],
+                "bbox": bbox,
+            }
+        )
+
+    parsed_images: list[ParsedImage] = []
+    for image in sorted(images_payload, key=lambda item: int(item.get("id", 0))):
+        if not isinstance(image, dict):
+            raise ValueError("COCO images entries must be objects.")
+        image_id = image.get("id")
+        file_name = image.get("file_name")
+        if not isinstance(image_id, int) or not isinstance(file_name, str):
+            raise ValueError("COCO image entries must include id and file_name.")
+        image_path = _resolve_coco_image_path(source_path, file_name=file_name)
+        width, height = read_image_size(image_path)
+        parsed_images.append(
+            ParsedImage(
+                source_path=image_path,
+                source_filename=Path(file_name).name,
+                width=width,
+                height=height,
+                annotations=annotations_by_image_id.get(image_id, []),
+            )
+        )
+
+    return ParsedDataset(
+        source_format="coco",
+        source_path=source_path,
+        task="object_detection",
+        classes=classes,
+        images=parsed_images,
+    )
+
+
+def _parse_shared_payload(
+    payload: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str], dict[int, int]]:
     images_payload = payload.get("images")
     annotations_payload = payload.get("annotations")
     categories_payload = payload.get("categories")
@@ -74,64 +199,30 @@ def _parse_classification_payload(*, payload: dict[str, Any], source_path: Path)
         category_id: class_id for class_id, category_id in enumerate(sorted_category_ids)
     }
 
-    annotations_by_image_id: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    image_entries: list[dict[str, Any]] = []
+    for image in images_payload:
+        if not isinstance(image, dict):
+            raise ValueError("COCO images entries must be objects.")
+        image_entries.append(image)
+
+    annotation_entries: list[dict[str, Any]] = []
     for annotation in annotations_payload:
         if not isinstance(annotation, dict):
             raise ValueError("COCO annotations entries must be objects.")
-        if annotation.get("iscrowd") == 1:
-            continue
-        image_id = annotation.get("image_id")
-        category_id = annotation.get("category_id")
-        if not isinstance(image_id, int) or not isinstance(category_id, int):
-            raise ValueError("COCO annotation entries must include image_id and category_id.")
-        if category_id not in category_names_by_id:
-            raise ValueError("COCO annotation category_id does not exist in categories.")
-        annotations_by_image_id[image_id].append(annotation)
+        annotation_entries.append(annotation)
+    return image_entries, annotation_entries, classes, category_id_to_class_id
 
-    parsed_images: list[ParsedImage] = []
-    for image in sorted(images_payload, key=lambda item: int(item.get("id", 0))):
-        if not isinstance(image, dict):
-            raise ValueError("COCO images entries must be objects.")
-        image_id = image.get("id")
-        file_name = image.get("file_name")
-        if not isinstance(image_id, int) or not isinstance(file_name, str):
-            raise ValueError("COCO image entries must include id and file_name.")
-        image_annotations = annotations_by_image_id.get(image_id, [])
-        if len(image_annotations) != 1:
-            raise ValueError(
-                "Classification COCO import requires exactly one annotation per image."
-            )
 
-        annotation = image_annotations[0]
-        category_id = int(annotation["category_id"])
-        class_id = category_id_to_class_id[category_id]
-        class_name = category_names_by_id[category_id]
-
-        image_path = _resolve_coco_image_path(source_path, file_name=file_name)
-        width, height = read_image_size(image_path)
-        parsed_images.append(
-            ParsedImage(
-                source_path=image_path,
-                source_filename=Path(file_name).name,
-                width=width,
-                height=height,
-                annotations=[
-                    {
-                        "type": "label",
-                        "class_id": class_id,
-                        "class_name": class_name,
-                    }
-                ],
-            )
-        )
-
-    return ParsedDataset(
-        source_format="coco",
-        source_path=source_path,
-        task="classification",
-        classes=classes,
-        images=parsed_images,
-    )
+def _parse_bbox(raw_bbox: Any) -> list[float]:
+    if not isinstance(raw_bbox, list) or len(raw_bbox) != 4:
+        raise ValueError("COCO bbox must be a list of four numbers: [x, y, width, height].")
+    try:
+        x, y, width, height = (float(value) for value in raw_bbox)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("COCO bbox values must be numbers.") from exc
+    if width <= 0 or height <= 0:
+        raise ValueError("COCO bbox width and height must be positive.")
+    return [x, y, width, height]
 
 
 def _resolve_annotations_file(source_path: Path, *, annotation_filename: str | None) -> Path:

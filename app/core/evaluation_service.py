@@ -24,11 +24,14 @@ from app.schemas.evaluation import (
     ClassificationAggregateMetrics,
     ClassificationPerImageResult,
     EvaluationConfig,
+    EvaluationPerImageResult,
     EvaluationProgress,
     EvaluationRecord,
     EvaluationResultsFile,
     EvaluationResultsPage,
     EvaluationResultsQuery,
+    ObjectDetectionAggregateMetrics,
+    ObjectDetectionPerImageResult,
 )
 from app.storage.json_store import JsonStore
 from app.storage.paths import WorkspacePaths
@@ -173,14 +176,17 @@ class EvaluationService:
         self,
         project_id: str,
         experiment_id: str,
-    ) -> ClassificationAggregateMetrics | None:
+    ) -> ClassificationAggregateMetrics | ObjectDetectionAggregateMetrics | None:
         """Return aggregate metrics when available."""
         self.get_evaluation(project_id, experiment_id)
         aggregate_path = self.paths.experiment_evaluation_aggregate_file(project_id, experiment_id)
         payload = self.store.read(aggregate_path, default=None)
         if payload is None:
             return None
+        dataset = self._get_required_dataset(project_id)
         try:
+            if dataset.task == "object_detection":
+                return ObjectDetectionAggregateMetrics.model_validate(payload)
             return ClassificationAggregateMetrics.model_validate(payload)
         except PydanticValidationError as exc:
             raise ValidationError(
@@ -201,18 +207,24 @@ class EvaluationService:
         if query.filter_subset is not None:
             filtered = [result for result in filtered if result.subset == query.filter_subset]
         if query.filter_correct is not None:
-            filtered = [result for result in filtered if result.correct == query.filter_correct]
+            filtered = [
+                result
+                for result in filtered
+                if self._is_result_correct(result) == query.filter_correct
+            ]
         if query.filter_class is not None:
             expected = query.filter_class.lower()
             filtered = [
-                result for result in filtered if result.ground_truth.class_name.lower() == expected
+                result
+                for result in filtered
+                if (self._extract_filter_class_name(result) or "").lower() == expected
             ]
 
         reverse = query.sort_order == "desc"
         if query.sort_by == "confidence":
-            filtered.sort(key=lambda item: item.prediction.confidence, reverse=reverse)
+            filtered.sort(key=self._result_confidence_sort_value, reverse=reverse)
         elif query.sort_by == "error":
-            filtered.sort(key=lambda item: 1.0 - item.prediction.confidence, reverse=reverse)
+            filtered.sort(key=self._result_error_sort_value, reverse=reverse)
         else:
             filtered.sort(key=lambda item: item.filename.lower(), reverse=reverse)
 
@@ -234,7 +246,7 @@ class EvaluationService:
         project_id: str,
         experiment_id: str,
         filename: str,
-    ) -> ClassificationPerImageResult:
+    ) -> EvaluationPerImageResult:
         """Return one per-image evaluation result by filename."""
         self.get_evaluation(project_id, experiment_id)
         safe_filename = self._normalize_result_filename(filename)
@@ -332,6 +344,39 @@ class EvaluationService:
         if Path(normalized).name != normalized:
             raise ValidationError("Filename must not contain path separators.")
         return normalized
+
+    def _is_result_correct(self, result: EvaluationPerImageResult) -> bool:
+        if isinstance(result, ClassificationPerImageResult):
+            return result.correct
+        if isinstance(result, ObjectDetectionPerImageResult):
+            return result.false_positives == 0 and result.false_negatives == 0
+        return False
+
+    def _extract_filter_class_name(self, result: EvaluationPerImageResult) -> str | None:
+        if isinstance(result, ClassificationPerImageResult):
+            return result.ground_truth.class_name
+        if isinstance(result, ObjectDetectionPerImageResult):
+            if result.ground_truth:
+                return result.ground_truth[0].class_name
+            if result.predictions:
+                return result.predictions[0].class_name
+        return None
+
+    def _result_confidence_sort_value(self, result: EvaluationPerImageResult) -> float:
+        if isinstance(result, ClassificationPerImageResult):
+            return float(result.prediction.confidence)
+        if isinstance(result, ObjectDetectionPerImageResult):
+            if not result.predictions:
+                return 0.0
+            return max(float(prediction.confidence) for prediction in result.predictions)
+        return 0.0
+
+    def _result_error_sort_value(self, result: EvaluationPerImageResult) -> float:
+        if isinstance(result, ClassificationPerImageResult):
+            return 1.0 - float(result.prediction.confidence)
+        if isinstance(result, ObjectDetectionPerImageResult):
+            return float(result.false_positives + result.false_negatives)
+        return 0.0
 
     def _load_record(self, project_id: str, experiment_id: str) -> EvaluationRecord:
         path = self.paths.experiment_evaluation_metadata_file(project_id, experiment_id)

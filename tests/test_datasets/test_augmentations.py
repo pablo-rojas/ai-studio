@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 import torch
 from PIL import Image
+from torchvision import tv_tensors
 from torchvision.transforms import v2
 
 from app.datasets.augmentations import build_augmentation_pipeline
@@ -24,6 +25,31 @@ def test_build_augmentation_pipeline_from_classification_defaults() -> None:
     assert val_output.dtype == torch.float32
     assert tuple(train_output.shape[-2:]) == (224, 224)
     assert tuple(val_output.shape[-2:]) == (224, 224)
+
+
+def test_build_augmentation_pipeline_from_detection_defaults() -> None:
+    defaults = get_default_augmentations("object_detection")
+    train_pipeline = build_augmentation_pipeline(defaults.train)
+    val_pipeline = build_augmentation_pipeline(defaults.val)
+    image = Image.new("RGB", (320, 320), color=(120, 130, 140))
+    target = {
+        "boxes": tv_tensors.BoundingBoxes(
+            torch.tensor([[10.0, 20.0, 90.0, 120.0]], dtype=torch.float32),
+            format=tv_tensors.BoundingBoxFormat.XYXY,
+            canvas_size=(320, 320),
+        ),
+        "labels": torch.tensor([0], dtype=torch.int64),
+    }
+
+    train_image, train_target = train_pipeline(image, target)
+    val_image, val_target = val_pipeline(image, target)
+
+    assert isinstance(train_image, torch.Tensor)
+    assert isinstance(val_image, torch.Tensor)
+    assert train_image.dtype == torch.float32
+    assert val_image.dtype == torch.float32
+    assert train_target["labels"].dtype == torch.int64
+    assert val_target["labels"].dtype == torch.int64
 
 
 def test_build_augmentation_pipeline_rejects_unknown_transform() -> None:

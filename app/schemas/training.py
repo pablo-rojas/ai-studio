@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 OptimizerType = Literal["adam", "adamw", "sgd"]
 SchedulerType = Literal["cosine", "step", "multistep", "poly", "none"]
 ClassificationLossType = Literal["cross_entropy", "focal", "label_smoothing_cross_entropy"]
+ModelHeadType = Literal["classification", "object_detection"]
+LossType = Literal["cross_entropy", "focal", "label_smoothing_cross_entropy", "default"]
 ExperimentStatus = Literal["created", "pending", "training", "completed", "failed", "cancelled"]
 PrecisionType = Literal["32", "16-mixed", "bf16-mixed"]
 
@@ -39,7 +41,7 @@ class ModelConfig(BaseModel):
     """Model-selection fields used to build a training model."""
 
     backbone: str = Field(min_length=1, max_length=80)
-    head: Literal["classification"] = "classification"
+    head: ModelHeadType = "classification"
     pretrained: bool = True
     freeze_backbone: bool = False
     dropout: float = Field(default=0.2, ge=0.0, le=0.9)
@@ -71,7 +73,7 @@ class HyperparameterConfig(BaseModel):
     batch_multiplier: int = Field(default=1, ge=1, le=64)
     max_epochs: int = Field(default=50, ge=1, le=1000)
     early_stopping_patience: int = Field(default=10, ge=0, le=100)
-    loss: ClassificationLossType = "cross_entropy"
+    loss: LossType = "cross_entropy"
     label_smoothing: float = Field(default=0.0, ge=0.0, le=0.5)
     dropout: float = Field(default=0.2, ge=0.0, le=0.9)
 

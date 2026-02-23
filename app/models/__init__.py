@@ -3,6 +3,7 @@
 from app.models.catalog import (
     ACTIVE_PHASES,
     CLASSIFICATION_BACKBONES,
+    OBJECT_DETECTION_ARCHITECTURES,
     TASK_REGISTRY,
     build_default_training_config,
     create_model,
@@ -17,6 +18,7 @@ from app.models.catalog import (
 __all__ = [
     "ACTIVE_PHASES",
     "CLASSIFICATION_BACKBONES",
+    "OBJECT_DETECTION_ARCHITECTURES",
     "TASK_REGISTRY",
     "build_default_training_config",
     "create_model",

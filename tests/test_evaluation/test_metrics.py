@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 import torch
 
-from app.evaluation.metrics import build_classification_metrics, compute_classification_metrics
+from app.evaluation.metrics import (
+    build_classification_metrics,
+    build_object_detection_metrics,
+    compute_classification_metrics,
+    compute_object_detection_metrics,
+)
 
 
 def test_build_classification_metrics_validates_num_classes() -> None:
@@ -30,3 +35,39 @@ def test_compute_classification_metrics_for_perfect_predictions() -> None:
     assert metrics["recall_macro"] == pytest.approx(1.0)
     assert metrics["f1_macro"] == pytest.approx(1.0)
     assert metrics["confusion_matrix"] == [[2, 0, 0], [0, 1, 0], [0, 0, 1]]
+
+
+def test_build_object_detection_metrics_is_constructed() -> None:
+    metrics = build_object_detection_metrics()
+    assert metrics.mean_average_precision is not None
+
+
+def test_compute_object_detection_metrics_for_perfect_predictions() -> None:
+    predictions = [
+        {
+            "boxes": torch.tensor([[10.0, 10.0, 30.0, 30.0]], dtype=torch.float32),
+            "scores": torch.tensor([0.95], dtype=torch.float32),
+            "labels": torch.tensor([0], dtype=torch.int64),
+        },
+        {
+            "boxes": torch.tensor([[2.0, 2.0, 15.0, 20.0]], dtype=torch.float32),
+            "scores": torch.tensor([0.90], dtype=torch.float32),
+            "labels": torch.tensor([1], dtype=torch.int64),
+        },
+    ]
+    targets = [
+        {
+            "boxes": torch.tensor([[10.0, 10.0, 30.0, 30.0]], dtype=torch.float32),
+            "labels": torch.tensor([0], dtype=torch.int64),
+        },
+        {
+            "boxes": torch.tensor([[2.0, 2.0, 15.0, 20.0]], dtype=torch.float32),
+            "labels": torch.tensor([1], dtype=torch.int64),
+        },
+    ]
+
+    metrics = compute_object_detection_metrics(predictions, targets, class_names=["car", "person"])
+
+    assert metrics["mAP_50"] == pytest.approx(1.0)
+    assert metrics["mAP_50_95"] == pytest.approx(1.0)
+    assert metrics["per_class_AP"] == {"car": pytest.approx(1.0), "person": pytest.approx(1.0)}

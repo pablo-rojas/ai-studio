@@ -16,7 +16,7 @@ TaskType = Literal[
     "regression",
 ]
 
-DatasetSourceFormat = Literal["image_folders", "coco", "csv"]
+DatasetSourceFormat = Literal["image_folders", "coco", "csv", "yolo"]
 SplitValue = Literal["train", "val", "test", "none"]
 DatasetImageSortBy = Literal["filename", "class", "size"]
 SortOrder = Literal["asc", "desc"]
@@ -71,7 +71,31 @@ class AnomalyAnnotation(BaseModel):
     is_anomalous: bool
 
 
-Annotation = LabelAnnotation | AnomalyAnnotation
+class BoundingBoxAnnotation(BaseModel):
+    """Object detection annotation using `[x, y, w, h]` pixel coordinates."""
+
+    type: Literal["bbox"] = "bbox"
+    class_id: int = Field(ge=0)
+    class_name: str = Field(min_length=1, max_length=80)
+    bbox: list[float] = Field(min_length=4, max_length=4)
+
+    @field_validator("class_name")
+    @classmethod
+    def validate_class_name(cls, value: str) -> str:
+        """Validate and normalize class names."""
+        return _normalize_class_name(value)
+
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox(cls, value: list[float]) -> list[float]:
+        """Validate bbox geometry values."""
+        x, y, width, height = (float(item) for item in value)
+        if width <= 0 or height <= 0:
+            raise ValueError("bbox width and height must be positive.")
+        return [x, y, width, height]
+
+
+Annotation = LabelAnnotation | AnomalyAnnotation | BoundingBoxAnnotation
 
 
 class ImageStats(BaseModel):

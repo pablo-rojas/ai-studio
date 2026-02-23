@@ -18,6 +18,7 @@ from app.datasets.formats import (
     parse_coco_dataset,
     parse_csv_dataset,
     parse_image_folders,
+    parse_yolo_dataset,
 )
 from app.schemas.dataset import (
     DatasetImage,
@@ -241,6 +242,8 @@ class DatasetService:
                 return parse_csv_dataset(source_path, task=task)
             if source_format == "coco":
                 return parse_coco_dataset(source_path, task=task)
+            if source_format == "yolo":
+                return parse_yolo_dataset(source_path, task=task)
         except OSError as exc:
             raise ValidationError(f"Unable to parse dataset source: {exc}") from exc
         except ValueError as exc:
@@ -328,12 +331,21 @@ class DatasetService:
     def _detect_source_format(self, source_path: Path) -> DatasetSourceFormat:
         csv_files = sorted(source_path.glob("*.csv"))
         json_files = sorted(source_path.glob("*.json"))
+        classes_file = source_path / "classes.txt"
+        labels_dir = source_path / "labels"
         has_visible_directories = any(
             entry.is_dir() and not entry.name.startswith(".") for entry in source_path.iterdir()
         )
 
         if json_files:
             return "coco"
+        if (
+            classes_file.exists()
+            and classes_file.is_file()
+            and labels_dir.exists()
+            and labels_dir.is_dir()
+        ):
+            return "yolo"
         if csv_files:
             return "csv"
         if has_visible_directories:
@@ -412,6 +424,12 @@ class DatasetService:
             for annotation in annotations:
                 if getattr(annotation, "type", None) == "anomaly":
                     return "anomalous" if annotation.is_anomalous else "normal"
+            return None
+
+        if task == "object_detection":
+            for annotation in annotations:
+                if getattr(annotation, "type", None) == "bbox":
+                    return annotation.class_name
             return None
 
         for annotation in annotations:
