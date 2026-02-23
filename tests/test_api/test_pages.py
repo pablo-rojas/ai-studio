@@ -374,6 +374,62 @@ async def test_training_page_renders_experiment_editor_and_live_chart_workspace(
 
 
 @pytest.mark.asyncio
+async def test_training_page_completed_state_has_quick_export_link(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Training Quick Export Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "training_quick_export_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    created_experiment = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Completed Baseline", "split_name": "80-10-10"},
+    )
+    assert created_experiment.status_code == 200
+    experiment_id = created_experiment.json()["data"]["id"]
+
+    _mark_experiment_completed_and_seed_checkpoints(
+        test_client,
+        project_id=project_id,
+        experiment_id=experiment_id,
+    )
+
+    response = await test_client.get(
+        f"/projects/{project_id}/training?experiment_id={experiment_id}"
+    )
+
+    assert response.status_code == 200
+    assert (
+        f"/projects/{project_id}/export?experiment_id={experiment_id}&new_export=1" in response.text
+    )
+
+
+@pytest.mark.asyncio
 async def test_evaluation_page_shows_dataset_required_state(test_client) -> None:
     created = await test_client.post(
         "/api/projects",
@@ -688,14 +744,70 @@ async def test_export_page_renders_workspace_and_download_link(
     assert response.status_code == 200
     assert 'id="export-page-root"' in response.text
     assert 'id="export-list"' in response.text
-    assert "Create Export" in response.text
-    assert "Export ONNX" in response.text
+    assert "+ New Export" in response.text
+    assert "data-export-list-panel" in response.text
+    assert "data-export-detail-panel" in response.text
+    assert "data-export-modal" in response.text
+    assert 'data-export-modal-open="false"' in response.text
     assert "Export Detail" in response.text
     assert "Validation" in response.text
     assert "Download ONNX" in response.text
     assert f"/api/export/{project_id}/{export_id}/download" in response.text
     assert "Export Ready" in response.text
-    assert f"/projects/{project_id}/export?experiment_id={completed_experiment_id}" in response.text
+
+
+@pytest.mark.asyncio
+async def test_export_page_new_export_query_opens_modal(
+    test_client,
+    workspace: Path,
+) -> None:
+    created = await test_client.post(
+        "/api/projects",
+        json={"name": "Export Modal Query Project", "task": "classification"},
+    )
+    project_id = created.json()["data"]["id"]
+
+    source_root = workspace.parent / "export_modal_query_source"
+    _build_classification_source(source_root, cats=20, dogs=20)
+
+    imported = await test_client.post(
+        f"/api/datasets/{project_id}/import/local",
+        json={
+            "source_path": str(source_root),
+            "source_format": "image_folders",
+        },
+    )
+    assert imported.status_code == 200
+
+    created_split = await test_client.post(
+        f"/api/splits/{project_id}",
+        json={
+            "name": "80-10-10",
+            "ratios": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "seed": 42,
+        },
+    )
+    assert created_split.status_code == 200
+
+    completed_experiment_response = await test_client.post(
+        f"/api/training/{project_id}/experiments",
+        json={"name": "Modal Ready", "split_name": "80-10-10"},
+    )
+    assert completed_experiment_response.status_code == 200
+    experiment_id = completed_experiment_response.json()["data"]["id"]
+    _mark_experiment_completed_and_seed_checkpoints(
+        test_client,
+        project_id=project_id,
+        experiment_id=experiment_id,
+    )
+
+    response = await test_client.get(
+        f"/projects/{project_id}/export?experiment_id={experiment_id}&new_export=1"
+    )
+
+    assert response.status_code == 200
+    assert 'data-export-modal-open="true"' in response.text
+    assert "New Export" in response.text
 
 
 def _mark_experiment_completed_and_seed_checkpoints(

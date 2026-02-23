@@ -1,4 +1,9 @@
-<section id="export-page-root">
+<section
+  id="export-page-root"
+  data-export-root
+  data-export-modal-open="{{ 'true' if open_new_export_modal else 'false' }}"
+  x-data="{ newExportOpen: {{ 'true' if open_new_export_modal else 'false' }} }"
+>
   {% if not dataset %}
   <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/40">
     <p class="text-base font-medium text-slate-900 dark:text-slate-100">No dataset imported.</p>
@@ -12,42 +17,52 @@
   </div>
   {% else %}
   <div class="grid grid-cols-1 gap-4 xl:grid-cols-[260px_1fr]">
-    <aside class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <aside data-export-list-panel class="space-y-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <div class="space-y-1">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Exports</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400">Select an export to inspect validation and download.</p>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Export List</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Select an export to inspect options, validation, and files.</p>
       </div>
 
-      <section id="export-list" class="space-y-2">
+      <section id="export-list" data-export-list class="space-y-2">
         {% if exports %}
+          {% set version_counter = namespace(by_format={}) %}
           {% for export in exports %}
+          {% set format_key = export.format %}
+          {% set card_version = version_counter.by_format.get(format_key, 0) + 1 %}
+          {% set _ = version_counter.by_format.update({format_key: card_version}) %}
           {% set is_selected = selected_export_id == export.id %}
           {% set status = export.status %}
           {% if status == "completed" %}
             {% set status_classes = "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200" %}
+            {% set status_label = "Completed" %}
           {% elif status in ("pending", "running") %}
             {% set status_classes = "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200" %}
+            {% set status_label = "Running" %}
           {% elif status == "failed" %}
             {% set status_classes = "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200" %}
+            {% set status_label = "Failed" %}
           {% else %}
             {% set status_classes = "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200" %}
+            {% set status_label = status | title %}
           {% endif %}
           <button
             type="button"
-            hx-get="/api/export/{{ project_id }}/{{ export.id }}"
+            hx-get="/api/export/{{ project_id }}/{{ export.id }}{% if open_new_export_modal %}?new_export=1{% endif %}"
             hx-target="#export-page-root"
             hx-swap="outerHTML"
-            hx-push-url="/projects/{{ project_id }}/export?experiment_id={{ export.experiment_id }}&export_id={{ export.id }}"
             class="w-full rounded-lg border p-3 text-left text-sm transition {% if is_selected %}border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10{% else %}border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700{% endif %}"
           >
             <div class="flex items-center justify-between gap-2">
-              <p class="truncate font-medium text-slate-900 dark:text-slate-100">{{ export.format | upper }} · {{ export.id }}</p>
+              <p class="truncate font-medium text-slate-900 dark:text-slate-100">{{ export.format | upper }} v{{ card_version }}</p>
               <span class="rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide {{ status_classes }}">
-                {{ status }}
+                {{ status_label }}
               </span>
             </div>
             <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
               {{ experiment_name_by_id.get(export.experiment_id, export.experiment_id) }}
+            </p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {{ export.created_at }}
             </p>
             {% if export.output_size_mb is not none %}
             <p class="mt-2 text-xs text-slate-600 dark:text-slate-300">{{ "%.3f"|format(export.output_size_mb) }} MB</p>
@@ -58,32 +73,253 @@
           {% endfor %}
         {% else %}
         <p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-          No exports yet. Create one from the workspace.
+          No exports yet. Create one using + New Export.
         </p>
         {% endif %}
       </section>
     </aside>
 
-    <div class="min-w-0 space-y-4">
-      <article id="export-workspace" class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <header class="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Create Export</h2>
+    <div data-export-detail-panel class="min-w-0 space-y-4">
+      {% if selected_export %}
+      {% set detail_status = selected_export.status %}
+      {% if detail_status == "completed" %}
+        {% set detail_status_classes = "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200" %}
+      {% elif detail_status in ("pending", "running") %}
+        {% set detail_status_classes = "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200" %}
+      {% elif detail_status == "failed" %}
+        {% set detail_status_classes = "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200" %}
+      {% else %}
+        {% set detail_status_classes = "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200" %}
+      {% endif %}
+      <article data-export-detail class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <header class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+          <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Export Detail</h2>
+          <span class="rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide {{ detail_status_classes }}">
+            {{ detail_status }}
+          </span>
         </header>
-        <div class="space-y-4 p-4">
-          {% if completed_experiments %}
-          <form
-            hx-post="/api/export/{{ project_id }}"
-            hx-target="#export-page-root"
-            hx-swap="outerHTML"
-            class="space-y-4"
-          >
-            <input type="hidden" name="format" value="onnx">
 
+        <div class="space-y-4 p-4 text-sm">
+          {% if detail_status == "completed" %}
+          <section class="space-y-3">
+            <h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Source</h3>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ experiment_name_by_id.get(selected_export.experiment_id, selected_export.experiment_id) }}
+                </p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.checkpoint }}</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Format and Options</h3>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Format</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.format | upper }}</p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Opset</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.options.opset_version }}</p>
+              </div>
+            </div>
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Input Shape (NCHW)</p>
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.options.input_shape | join(" × ") }}</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Dynamic Batch</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {% if selected_export.options.dynamic_axes %}Enabled{% else %}Disabled{% endif %}
+                </p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Simplified</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {% if selected_export.options.simplify %}Yes{% else %}No{% endif %}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Validation</h3>
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              {% if selected_export.validation %}
+              <p class="font-medium text-slate-900 dark:text-slate-100">
+                {% if selected_export.validation.passed %}Passed{% else %}Failed{% endif %}
+              </p>
+              <p class="text-xs text-slate-600 dark:text-slate-300">
+                max diff {{ "%.6g"|format(selected_export.validation.max_diff) }} · mean diff {{ "%.6g"|format(selected_export.validation.mean_diff) }}
+              </p>
+              {% else %}
+              <p class="font-medium text-slate-900 dark:text-slate-100">Not available</p>
+              {% endif %}
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">File Info</h3>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Output File</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.output_file or "—" }}</p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Output Size</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {% if selected_export.output_size_mb is not none %}{{ "%.3f"|format(selected_export.output_size_mb) }} MB{% else %}—{% endif %}
+                </p>
+              </div>
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Created</p>
+                <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.created_at }}</p>
+              </div>
+            </div>
+          </section>
+
+          <div class="flex flex-wrap items-center gap-2">
+            {% if selected_export.output_file %}
+            <a
+              href="/api/export/{{ project_id }}/{{ selected_export.id }}/download"
+              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              Download ONNX
+            </a>
+            {% endif %}
+            <button
+              type="button"
+              hx-delete="/api/export/{{ project_id }}/{{ selected_export.id }}"
+              hx-target="#export-page-root"
+              hx-swap="outerHTML"
+              class="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/30"
+            >
+              Delete Export
+            </button>
+          </div>
+
+          {% elif detail_status in ("pending", "running") %}
+          <section class="rounded-lg border border-sky-200 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/30">
+            <p class="text-sm font-semibold text-sky-800 dark:text-sky-200">Exporting model...</p>
+            <p class="mt-2 text-sm text-sky-700 dark:text-sky-300">
+              Export status is <span class="font-medium">{{ detail_status }}</span>. This can take a moment while model export and validation finish.
+            </p>
+          </section>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment</p>
+              <p class="font-medium text-slate-900 dark:text-slate-100">
+                {{ experiment_name_by_id.get(selected_export.experiment_id, selected_export.experiment_id) }}
+              </p>
+            </div>
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</p>
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.checkpoint }}</p>
+            </div>
+          </div>
+
+          {% elif detail_status == "failed" %}
+          {% set retry_url = "/api/export/" ~ project_id ~ "?experiment_id=" ~ selected_export.experiment_id ~ "&export_id=" ~ selected_export.id ~ "&new_export=1" %}
+          <section class="rounded-lg border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30">
+            <p class="text-sm font-semibold text-rose-800 dark:text-rose-200">Export Failed</p>
+            <p class="mt-2 text-sm text-rose-700 dark:text-rose-300">
+              {{ selected_export.error or "The exporter reported an unknown error." }}
+            </p>
+          </section>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment</p>
+              <p class="font-medium text-slate-900 dark:text-slate-100">
+                {{ experiment_name_by_id.get(selected_export.experiment_id, selected_export.experiment_id) }}
+              </p>
+            </div>
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</p>
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.checkpoint }}</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              hx-get="{{ retry_url }}"
+              hx-target="#export-page-root"
+              hx-swap="outerHTML"
+              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              hx-delete="/api/export/{{ project_id }}/{{ selected_export.id }}"
+              hx-target="#export-page-root"
+              hx-swap="outerHTML"
+              class="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/30"
+            >
+              Delete Export
+            </button>
+          </div>
+          {% endif %}
+        </div>
+      </article>
+      {% else %}
+      <article class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-900/40">
+        <p class="text-base font-medium text-slate-900 dark:text-slate-100">No export selected.</p>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Use + New Export or choose one from the list.</p>
+      </article>
+      {% endif %}
+    </div>
+  </div>
+
+  <div
+    data-export-modal
+    x-cloak
+    x-show="newExportOpen"
+    class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4"
+    @click.self="document.querySelector('[data-export-modal-close]')?.click()"
+  >
+    <div class="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:shadow-slate-950/40">
+      <div class="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">New Export</h2>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Choose a completed experiment and ONNX options.</p>
+        </div>
+        <button
+          type="button"
+          data-export-modal-close
+          hx-get="{{ fragment_url }}"
+          hx-target="#export-page-root"
+          hx-swap="outerHTML"
+          @click="newExportOpen = false"
+          class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Close
+        </button>
+      </div>
+
+      {% if completed_experiments %}
+      <form
+        hx-post="/api/export/{{ project_id }}"
+        hx-target="#export-page-root"
+        hx-swap="outerHTML"
+        class="space-y-5"
+      >
+        <input type="hidden" name="format" value="onnx">
+
+        <section class="space-y-3">
+          <h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Source Model</h3>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label class="block space-y-1">
               <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment</span>
               <select
                 name="experiment_id"
-                hx-get="/api/export/{{ project_id }}"
+                hx-get="/api/export/{{ project_id }}?new_export=1"
                 hx-target="#export-page-root"
                 hx-swap="outerHTML"
                 hx-trigger="change"
@@ -110,206 +346,132 @@
                 {% endif %}
               </select>
             </label>
+          </div>
+        </section>
 
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <label class="space-y-1">
-                <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Opset</span>
-                <input
-                  type="number"
-                  name="options.opset_version"
-                  value="{{ form_defaults.opset_version }}"
-                  min="13"
-                  max="21"
-                  class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                >
-              </label>
-              <label class="space-y-1">
-                <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Input Height</span>
-                <input
-                  type="number"
-                  name="input_height"
-                  value="{{ form_defaults.input_height }}"
-                  min="1"
-                  max="8192"
-                  class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                >
-              </label>
-              <label class="space-y-1">
-                <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Input Width</span>
-                <input
-                  type="number"
-                  name="input_width"
-                  value="{{ form_defaults.input_width }}"
-                  min="1"
-                  max="8192"
-                  class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                >
-              </label>
+        <section class="space-y-3">
+          <h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Export Format</h3>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label class="rounded-lg border border-blue-500 bg-blue-50 p-3 dark:border-blue-400 dark:bg-blue-500/20">
+              <span class="block text-sm font-semibold text-blue-900 dark:text-blue-100">ONNX</span>
+              <span class="mt-1 block text-xs text-blue-700 dark:text-blue-200">Available now</span>
+            </label>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+              <span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">TorchScript</span>
+              <span class="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">Coming Soon</span>
             </div>
-
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <label class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
-                <input type="hidden" name="dynamic_batch" value="false">
-                <input
-                  type="checkbox"
-                  name="dynamic_batch"
-                  value="true"
-                  {% if form_defaults.dynamic_batch %}checked{% endif %}
-                  class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950"
-                >
-                Dynamic batch
-              </label>
-
-              <label class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
-                <input type="hidden" name="options.simplify" value="false">
-                <input
-                  type="checkbox"
-                  name="options.simplify"
-                  value="true"
-                  {% if form_defaults.simplify %}checked{% endif %}
-                  class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950"
-                >
-                Simplify graph
-              </label>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+              <span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">TensorRT</span>
+              <span class="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">Coming Soon</span>
             </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/40">
+              <span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">OpenVINO</span>
+              <span class="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">Coming Soon</span>
+            </div>
+          </div>
+        </section>
 
-            <div class="flex items-center">
-              <button
-                type="submit"
-                class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+        <section class="space-y-3">
+          <h3 class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">ONNX Options</h3>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <label class="space-y-1">
+              <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Opset Version</span>
+              <input
+                type="number"
+                name="options.opset_version"
+                value="{{ form_defaults.opset_version }}"
+                min="13"
+                max="21"
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               >
-                Export ONNX
-              </button>
-            </div>
-          </form>
-          {% else %}
-          <p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-            No completed experiments available. Finish training before exporting.
-          </p>
-          {% endif %}
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Input Height</span>
+              <input
+                type="number"
+                name="input_height"
+                value="{{ form_defaults.input_height }}"
+                min="1"
+                max="8192"
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+            </label>
+            <label class="space-y-1">
+              <span class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Input Width</span>
+              <input
+                type="number"
+                name="input_width"
+                value="{{ form_defaults.input_width }}"
+                min="1"
+                max="8192"
+                class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+              <input type="hidden" name="dynamic_batch" value="false">
+              <input
+                type="checkbox"
+                name="dynamic_batch"
+                value="true"
+                {% if form_defaults.dynamic_batch %}checked{% endif %}
+                class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950"
+              >
+              Dynamic Batch
+            </label>
+            <label class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+              <input type="hidden" name="options.simplify" value="false">
+              <input
+                type="checkbox"
+                name="options.simplify"
+                value="true"
+                {% if form_defaults.simplify %}checked{% endif %}
+                class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-slate-700 dark:bg-slate-950"
+              >
+              Simplify
+            </label>
+          </div>
+        </section>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            data-export-modal-close
+            hx-get="{{ fragment_url }}"
+            hx-target="#export-page-root"
+            hx-swap="outerHTML"
+            @click="newExportOpen = false"
+            class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+          >
+            Export
+          </button>
         </div>
-      </article>
-
-      {% if selected_export %}
-      {% set detail_status = selected_export.status %}
-      {% if detail_status == "completed" %}
-        {% set detail_status_classes = "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200" %}
-      {% elif detail_status in ("pending", "running") %}
-        {% set detail_status_classes = "bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200" %}
-      {% elif detail_status == "failed" %}
-        {% set detail_status_classes = "bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-200" %}
+      </form>
       {% else %}
-        {% set detail_status_classes = "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200" %}
-      {% endif %}
-      <article data-export-detail class="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <header class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Export Detail</h2>
-          <span class="rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide {{ detail_status_classes }}">
-            {{ detail_status }}
-          </span>
-        </header>
-
-        <div class="space-y-4 p-4 text-sm">
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Experiment</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">
-                {{ experiment_name_by_id.get(selected_export.experiment_id, selected_export.experiment_id) }}
-              </p>
-            </div>
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Checkpoint</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.checkpoint }}</p>
-            </div>
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Format</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.format | upper }}</p>
-            </div>
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Opset</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.options.opset_version }}</p>
-            </div>
-          </div>
-
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Input Shape (NCHW)</p>
-            <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.options.input_shape | join(" × ") }}</p>
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Dynamic Batch</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">
-                {% if selected_export.options.dynamic_axes %}Enabled{% else %}Disabled{% endif %}
-              </p>
-            </div>
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Simplified</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">
-                {% if selected_export.options.simplify %}Yes{% else %}No{% endif %}
-              </p>
-            </div>
-          </div>
-
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Validation</p>
-            {% if selected_export.validation %}
-            <p class="font-medium text-slate-900 dark:text-slate-100">
-              {% if selected_export.validation.passed %}Passed{% else %}Failed{% endif %}
-            </p>
-            <p class="text-xs text-slate-600 dark:text-slate-300">
-              max diff {{ "%.6g"|format(selected_export.validation.max_diff) }} · mean diff {{ "%.6g"|format(selected_export.validation.mean_diff) }}
-            </p>
-            {% else %}
-            <p class="font-medium text-slate-900 dark:text-slate-100">Not available</p>
-            {% endif %}
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Output File</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ selected_export.output_file or "—" }}</p>
-            </div>
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
-              <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Output Size</p>
-              <p class="font-medium text-slate-900 dark:text-slate-100">
-                {% if selected_export.output_size_mb is not none %}{{ "%.3f"|format(selected_export.output_size_mb) }} MB{% else %}—{% endif %}
-              </p>
-            </div>
-          </div>
-
-          {% if selected_export.error %}
-          <p class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-            {{ selected_export.error }}
-          </p>
-          {% endif %}
-
-          <div class="flex flex-wrap items-center gap-2">
-            {% if selected_export.output_file %}
-            <a
-              href="/api/export/{{ project_id }}/{{ selected_export.id }}/download"
-              class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
-            >
-              Download ONNX
-            </a>
-            {% endif %}
-            <button
-              type="button"
-              hx-delete="/api/export/{{ project_id }}/{{ selected_export.id }}"
-              hx-target="#export-page-root"
-              hx-swap="outerHTML"
-              class="rounded-md border border-rose-300 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/30"
-            >
-              Delete Export
-            </button>
-          </div>
-        </div>
-      </article>
-      {% else %}
-      <article class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-900/40">
-        <p class="text-base font-medium text-slate-900 dark:text-slate-100">No export selected.</p>
-        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Create a new export or choose one from the list.</p>
-      </article>
+      <p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+        No completed experiments available. Finish training before exporting.
+      </p>
+      <div class="flex items-center justify-end pt-2">
+        <button
+          type="button"
+          data-export-modal-close
+          hx-get="{{ fragment_url }}"
+          hx-target="#export-page-root"
+          hx-swap="outerHTML"
+          @click="newExportOpen = false"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Close
+        </button>
+      </div>
       {% endif %}
     </div>
   </div>

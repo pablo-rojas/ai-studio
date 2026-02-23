@@ -10,6 +10,17 @@
         Export completed experiments for <span class="font-medium">{{ project.name }}</span>.
       </p>
     </div>
+    {% if dataset %}
+    <button
+      type="button"
+      hx-get="{{ fragment_url_with_modal }}"
+      hx-target="#export-page-root"
+      hx-swap="outerHTML"
+      class="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+    >
+      + New Export
+    </button>
+    {% endif %}
   </div>
 
   {% include "fragments/export_page_root.html" %}

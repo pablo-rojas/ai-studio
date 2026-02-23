@@ -928,6 +928,12 @@
         Restart
       </button>
       {% elif status == "completed" %}
+      <a
+        href="/projects/{{ project_id }}/export?experiment_id={{ experiment.id }}&new_export=1"
+        class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300"
+      >
+        Export
+      </a>
       <button
         type="button"
         hx-post="/api/training/{{ project_id }}/experiments/{{ experiment.id }}/restart"

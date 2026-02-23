@@ -171,12 +171,16 @@ async def test_export_api_hx_endpoints_render_export_fragments(
     hx_headers = {"HX-Request": "true"}
 
     list_response = await test_client.get(
-        f"/api/export/{project_id}",
+        f"/api/export/{project_id}?new_export=1",
         headers=hx_headers,
     )
     assert list_response.status_code == 200
     assert 'id="export-page-root"' in list_response.text
-    assert "Create Export" in list_response.text
+    assert 'data-export-modal-open="true"' in list_response.text
+    assert "data-export-list-panel" in list_response.text
+    assert "data-export-detail-panel" in list_response.text
+    assert "data-export-modal" in list_response.text
+    assert "new_export=1" in list_response.headers.get("HX-Push-Url", "")
 
     create_response = await test_client.post(
         f"/api/export/{project_id}",
@@ -194,22 +198,26 @@ async def test_export_api_hx_endpoints_render_export_fragments(
     )
     assert create_response.status_code == 200
     assert 'id="export-list"' in create_response.text
+    assert 'data-export-modal-open="false"' in create_response.text
     assert "Export Detail" in create_response.text
     assert "Download ONNX" in create_response.text
     assert create_response.headers.get("HX-Push-Url", "").startswith(
         f"/projects/{project_id}/export"
     )
+    assert "new_export=1" not in create_response.headers.get("HX-Push-Url", "")
 
     list_after_response = await test_client.get(f"/api/export/{project_id}")
     assert list_after_response.status_code == 200
     export_id = list_after_response.json()["data"]["exports"][0]["id"]
 
     get_response = await test_client.get(
-        f"/api/export/{project_id}/{export_id}",
+        f"/api/export/{project_id}/{export_id}?new_export=1",
         headers=hx_headers,
     )
     assert get_response.status_code == 200
     assert "data-export-detail" in get_response.text
+    assert 'data-export-modal-open="true"' in get_response.text
+    assert "new_export=1" in get_response.headers.get("HX-Push-Url", "")
     assert f"/api/export/{project_id}/{export_id}/download" in get_response.text
 
     delete_response = await test_client.delete(
@@ -218,6 +226,7 @@ async def test_export_api_hx_endpoints_render_export_fragments(
     )
     assert delete_response.status_code == 200
     assert 'id="export-page-root"' in delete_response.text
+    assert "data-export-modal" in delete_response.text
     assert "No exports yet." in delete_response.text
 
 

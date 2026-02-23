@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlencode
 
 from app.core.dataset_service import DatasetService
 from app.core.evaluation_service import EvaluationService
@@ -101,6 +102,26 @@ def _resolve_selected_export_record(
         return None
 
 
+def _build_export_url(
+    base_path: str,
+    *,
+    selected_experiment_id: str | None,
+    selected_export_id: str | None,
+    open_new_export_modal: bool = False,
+) -> str:
+    query: dict[str, str] = {}
+    if selected_experiment_id:
+        query["experiment_id"] = selected_experiment_id
+    if selected_export_id:
+        query["export_id"] = selected_export_id
+    if open_new_export_modal:
+        query["new_export"] = "1"
+    encoded = urlencode(query)
+    if not encoded:
+        return base_path
+    return f"{base_path}?{encoded}"
+
+
 def build_export_page_context(
     *,
     project_id: str,
@@ -110,6 +131,7 @@ def build_export_page_context(
     training_service: TrainingService,
     selected_experiment_id: str | None = None,
     selected_export_id: str | None = None,
+    open_new_export_modal: bool = False,
 ) -> dict[str, Any]:
     """Build the template context used by the Export page and HTMX fragments."""
     try:
@@ -214,6 +236,9 @@ def build_export_page_context(
 
     selected_export_id_value = str(selected_export.get("id")) if selected_export else None
 
+    page_base_path = f"/projects/{project_id}/export"
+    fragment_base_path = f"/api/export/{project_id}"
+
     return {
         "project_id": project_id,
         "dataset": dataset,
@@ -227,4 +252,27 @@ def build_export_page_context(
         "selected_export_id": selected_export_id_value,
         "experiment_name_by_id": experiment_name_by_id,
         "form_defaults": form_defaults,
+        "open_new_export_modal": open_new_export_modal,
+        "page_url": _build_export_url(
+            page_base_path,
+            selected_experiment_id=resolved_experiment_id,
+            selected_export_id=selected_export_id_value,
+        ),
+        "page_url_with_modal": _build_export_url(
+            page_base_path,
+            selected_experiment_id=resolved_experiment_id,
+            selected_export_id=selected_export_id_value,
+            open_new_export_modal=True,
+        ),
+        "fragment_url": _build_export_url(
+            fragment_base_path,
+            selected_experiment_id=resolved_experiment_id,
+            selected_export_id=selected_export_id_value,
+        ),
+        "fragment_url_with_modal": _build_export_url(
+            fragment_base_path,
+            selected_experiment_id=resolved_experiment_id,
+            selected_export_id=selected_export_id_value,
+            open_new_export_modal=True,
+        ),
     }

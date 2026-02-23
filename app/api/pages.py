@@ -47,6 +47,12 @@ _CLASSIFICATION_BACKBONES: tuple[tuple[str, str], ...] = (
 _EVALUATION_SUBSET_ORDER: tuple[str, str, str] = ("test", "val", "train")
 
 
+def _is_truthy_query_flag(raw_value: str | None) -> bool:
+    if raw_value is None:
+        return False
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _serialize_training_sections(
     sections: tuple[TrainingSection, ...],
 ) -> dict[str, dict[str, object]]:
@@ -443,6 +449,7 @@ async def export_page(
     project = project_service.get_project(project_id)
     selected_experiment_id = request.query_params.get("experiment_id")
     selected_export_id = request.query_params.get("export_id")
+    open_new_export_modal = _is_truthy_query_flag(request.query_params.get("new_export"))
 
     context = build_export_page_context(
         project_id=project_id,
@@ -452,6 +459,7 @@ async def export_page(
         training_service=training_service,
         selected_experiment_id=selected_experiment_id,
         selected_export_id=selected_export_id,
+        open_new_export_modal=open_new_export_modal,
     )
 
     return templates.TemplateResponse(

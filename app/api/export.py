@@ -107,12 +107,15 @@ def _build_export_push_url(
     *,
     selected_experiment_id: str | None,
     selected_export_id: str | None,
+    open_new_export_modal: bool = False,
 ) -> str:
     query: dict[str, str] = {}
     if selected_experiment_id:
         query["experiment_id"] = selected_experiment_id
     if selected_export_id:
         query["export_id"] = selected_export_id
+    if open_new_export_modal:
+        query["new_export"] = "1"
     encoded = urlencode(query)
     if not encoded:
         return f"/projects/{project_id}/export"
@@ -138,8 +141,13 @@ def _render_export_page_fragment(
         selected_export_id=(
             str(context["selected_export_id"]) if context["selected_export_id"] else None
         ),
+        open_new_export_modal=bool(context.get("open_new_export_modal", False)),
     )
     return response
+
+
+def _is_modal_open(raw_value: Any) -> bool:
+    return _coerce_bool(raw_value, default=False)
 
 
 def _render_export_page_for_hx(
@@ -148,6 +156,7 @@ def _render_export_page_for_hx(
     project_id: str,
     selected_experiment_id: str | None,
     selected_export_id: str | None,
+    open_new_export_modal: bool,
     dataset_service: DatasetService,
     evaluation_service: EvaluationService,
     export_service: ExportService,
@@ -161,6 +170,7 @@ def _render_export_page_for_hx(
         training_service=training_service,
         selected_experiment_id=selected_experiment_id,
         selected_export_id=selected_export_id,
+        open_new_export_modal=open_new_export_modal,
     )
     return _render_export_page_fragment(request, context=context)
 
@@ -226,6 +236,7 @@ async def list_exports(
             project_id=project_id,
             selected_experiment_id=request.query_params.get("experiment_id"),
             selected_export_id=request.query_params.get("export_id"),
+            open_new_export_modal=_is_modal_open(request.query_params.get("new_export")),
             dataset_service=dataset_service,
             evaluation_service=evaluation_service,
             export_service=export_service,
@@ -253,6 +264,7 @@ async def create_export(
             project_id=project_id,
             selected_experiment_id=export_record.experiment_id,
             selected_export_id=export_record.id,
+            open_new_export_modal=False,
             dataset_service=dataset_service,
             evaluation_service=evaluation_service,
             export_service=export_service,
@@ -279,6 +291,7 @@ async def get_export(
             project_id=project_id,
             selected_experiment_id=export_record.experiment_id,
             selected_export_id=export_record.id,
+            open_new_export_modal=_is_modal_open(request.query_params.get("new_export")),
             dataset_service=dataset_service,
             evaluation_service=evaluation_service,
             export_service=export_service,
@@ -306,6 +319,7 @@ async def delete_export(
             project_id=project_id,
             selected_experiment_id=existing.experiment_id,
             selected_export_id=None,
+            open_new_export_modal=False,
             dataset_service=dataset_service,
             evaluation_service=evaluation_service,
             export_service=export_service,
