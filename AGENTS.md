@@ -107,7 +107,7 @@ Workspace data layout: `plan/02-data-layer/00-storage-layout.md`.
 
 ## Phased Roadmap — The Master Plan
 
-This project is built in **25 phases**, always in **backend → API → GUI** order. The full roadmap with acceptance criteria is in `plan/11-roadmap.md`.
+This project is built in **28 phases**, always in **backend → API → GUI** order. The full roadmap with acceptance criteria is in `plan/11-roadmap.md`.
 
 ### Current Phase
 
@@ -139,8 +139,8 @@ Only implement features belonging to the current phase. Do not jump ahead. Each 
 | 16 | ONNX Export | `app/export/onnx_export.py`, `app/export/validation.py` |
 | 17 | API: Export | `app/api/export.py` |
 | 18 | GUI: Export Page | `app/templates/pages/export.html` |
-| 19–24 | Additional tasks | Object detection, segmentation, instance seg, anomaly detection, regression, OBB |
-| 25 | Polish & Extras | Multi-GPU, mixed precision, extra exports, dark mode |
+| 19–27 | Additional tasks | OD (core+GUI), segmentation (core+GUI), instance seg, DINOv3, anomaly detection, regression, OBB |
+| 28 | Polish & Extras | Multi-GPU, mixed precision, extra exports, dark mode |
 
 ### Phase Dependencies
 
@@ -149,7 +149,7 @@ Phase 1 → 2 → 3 → 4 → {5, 6, 7}
 Phase 3 → 8 → 9 → 10 → 11 → 12
 Phase 10 → 13 → 14 → 15
 Phase 10 → 16 → 17 → 18
-Phases 19–24 depend on Groups A–D being complete.
+Phases 19–27 depend on Groups A–D being complete.
 ```
 
 ---
@@ -521,7 +521,7 @@ Use `sklearn.model_selection.train_test_split` with `stratify` for splits.
 
 ---
 
-## Adding a New Task (Phases 19–24 Checklist)
+## Adding a New Task (Phases 19–27 Checklist)
 
 When adding a new task type, follow this checklist from `plan/03-tasks/00-task-registry.md`:
 

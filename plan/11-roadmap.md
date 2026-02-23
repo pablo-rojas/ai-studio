@@ -29,14 +29,16 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 | **Phase 16** | ONNX Export | Export with validation |
 | **Phase 17** | API — Export | REST endpoints for Phase 16 |
 | **Phase 18** | GUI — Export Page | Export form, download link, validation status |
-| **Phase 19** | Object Detection | Task definition, bbox handling, detection models |
-| **Phase 20** | Semantic Segmentation | Task definition, mask handling, segmentation models |
-| **Phase 21** | Instance Segmentation | Task definition, Mask R-CNN, COCO instance format |
-| **Phase 22** | DINOv3 Models | DINOv3-ConvNeXt & DINOv3-ViT backbones via HuggingFace Transformers |
-| **Phase 23** | Anomaly Detection | Task definition, metrics, evaluation adaptations |
-| **Phase 24** | Regression | Task definition, target normalization, scatter plots |
-| **Phase 25** | Oriented Object Detection | Angle regression, rotated IoU, DOTA/YOLO-OBB import |
-| **Phase 26** | Polish & Extras | Multi-GPU, extra exports, advanced features |
+| **Phase 19** | Object Detection — Core | Task definition, models, COCO/YOLO dataset adapter, metrics, eval pipeline |
+| **Phase 20** | Object Detection — GUI | Dataset page bbox overlays, training page hparam fields, eval page bbox+AP |
+| **Phase 21** | Semantic Segmentation — Core | Task definition, models, mask handling, loss, metrics, eval pipeline |
+| **Phase 22** | Semantic Segmentation — GUI | Mask overlays on dataset page, predicted/GT masks + error map on eval page |
+| **Phase 23** | Instance Segmentation | Task definition, Mask R-CNN, COCO instance format, per-instance overlays |
+| **Phase 24** | DINOv3 Models | DINOv3-ConvNeXt & DINOv3-ViT backbones via HuggingFace Transformers |
+| **Phase 25** | Anomaly Detection | Task definition, metrics, evaluation adaptations |
+| **Phase 26** | Regression | Task definition, target normalization, scatter plots |
+| **Phase 27** | Oriented Object Detection | Angle regression, rotated IoU, DOTA/YOLO-OBB import |
+| **Phase 28** | Polish & Extras | Multi-GPU, extra exports, advanced features |
 
 ---
 
@@ -450,97 +452,124 @@ consecutive, letting you view and test each feature end-to-end before moving on.
      GROUP E — Additional Tasks  (each includes backend + GUI adaptations)
      ──────────────────────────────────────────────────────────── -->
 
-## Phase 19 — Object Detection
+## Phase 19 — Object Detection: Core
 
-**Goal**: Add the object detection task with bounding box handling.
+**Goal**: Add the object detection task backend — models, data handling, training, and evaluation logic.
 
 ### Deliverables
 
 | Component | Change |
 |-----------|--------|
-| Task definition | `ObjectDetectionTask` |
-| Models | Faster R-CNN, FCOS, RetinaNet, SSD (from torchvision) |
-| Dataset adapter | COCO bbox format, custom collate function |
+| Task definition | `ObjectDetectionTask` registered in task registry |
+| Models | Faster R-CNN, FCOS, RetinaNet, SSD, SSDLite (from torchvision) |
+| Dataset adapter | COCO bbox format + YOLO format parser |
+| Collate function | Custom collate returning `(images_list, targets_list)` for variable-length targets |
 | Augmentations | Joint image+bbox transforms (torchvision.transforms.v2) |
 | Loss | Built into torchvision model forward pass |
 | Metrics | mAP@0.5, mAP@0.5:0.95 via torchmetrics |
-| Import formats | YOLO format parser |
-| Evaluation | Per-image: TP/FP/FN boxes. Aggregate: per-class AP. |
-
-### GUI Adaptations
-
-- Bounding box overlay on images (canvas-overlay.js).
-- Dataset page: box overlay on thumbnails.
-- Evaluation page: box overlay with TP/FP/FN coloring.
+| Evaluation pipeline | Per-image: TP/FP/FN boxes. Aggregate: per-class AP. |
 
 ### Acceptance Criteria
 
-- [ ] Object detection project can be created
+- [ ] Object detection project can be created and trained end-to-end (CLI/API)
 - [ ] COCO-format dataset can be imported
-- [ ] Bounding boxes are drawn on images in the UI
-- [ ] mAP metrics are computed and displayed
+- [ ] YOLO-format dataset can be imported
+- [ ] mAP metrics are computed correctly
 
 ---
 
-## Phase 20 — Semantic Segmentation
+## Phase 20 — Object Detection: GUI
 
-**Goal**: Add the semantic segmentation task with mask handling.
+**Goal**: Add UI adaptations for the object detection task across all relevant pages.
 
 ### Deliverables
 
 | Component | Change |
 |-----------|--------|
-| Task definition | `SegmentationTask` |
+| Dataset page | Bbox overlay on thumbnails and detail view (canvas-overlay.js) |
+| Training page | Detection-specific hyperparameter fields (NMS threshold, score threshold) |
+| Evaluation page | Bbox overlays with TP/FP/FN coloring, per-class AP bar chart |
+
+### Acceptance Criteria
+
+- [ ] Bounding boxes are drawn on images in the dataset page
+- [ ] Detection-specific hyperparameters are configurable in the training UI
+- [ ] Evaluation page shows box overlays color-coded by TP/FP/FN
+- [ ] Full end-to-end: create project → import → train → evaluate visible in UI
+
+---
+
+## Phase 21 — Semantic Segmentation: Core
+
+**Goal**: Add the semantic segmentation task backend — models, mask data handling, training, and evaluation logic.
+
+### Deliverables
+
+| Component | Change |
+|-----------|--------|
+| Task definition | `SegmentationTask` registered in task registry |
 | Models | FCN, DeepLabV3, DeepLabV3+, LRASPP (from torchvision) |
-| Dataset adapter | Mask image loading, class mapping |
-| Augmentations | Joint image+mask transforms |
+| Dataset adapter | Pixel mask loading, class mapping, COCO polygon/RLE rasterization |
+| Augmentations | Joint image+mask transforms — same spatial ops applied identically to both |
 | Loss | CrossEntropyLoss + DiceLoss |
 | Metrics | mIoU, pixel accuracy, per-class IoU |
-| Import | COCO polygon/RLE mask support |
-| Evaluation | Mask overlay, per-class IoU bar chart |
-
-### GUI Adaptations
-
-- Mask overlay visualization on dataset and evaluation pages.
-- Canvas overlay: semi-transparent colored regions.
+| Evaluation pipeline | Per-image pixel accuracy + per-class IoU. Aggregate mIoU. |
 
 ### Acceptance Criteria
 
-- [ ] Segmentation project can be created
+- [ ] Segmentation project can be created and trained end-to-end (CLI/API)
 - [ ] COCO polygon/RLE dataset can be imported
-- [ ] Mask overlays render on images
-- [ ] mIoU metric is computed and displayed
+- [ ] mIoU metric is computed correctly
 
 ---
 
-## Phase 21 — Instance Segmentation
+## Phase 22 — Semantic Segmentation: GUI
 
-**Goal**: Add instance segmentation, extending segmentation + detection.
+**Goal**: Add UI adaptations for the semantic segmentation task across all relevant pages.
 
 ### Deliverables
 
 | Component | Change |
 |-----------|--------|
-| Task definition | `InstanceSegmentationTask` |
-| Models | Mask R-CNN (from torchvision) |
-| Dataset adapter | COCO instance format (polygons + masks) |
-| Metrics | mAP (mask IoU), mAP (box IoU) |
-| Evaluation | Per-instance mask overlay |
+| Dataset page | Semi-transparent colored mask overlay (one color per class) |
+| Evaluation page | Predicted mask overlay, ground-truth overlay, error map (misclassified pixels), per-class IoU bar chart |
 
-### GUI Adaptations
+### Acceptance Criteria
 
-- Per-instance colored mask overlay on evaluation page.
-- COCO polygon import support.
+- [ ] Mask overlays render on images in the dataset page
+- [ ] Evaluation page shows predicted mask, GT mask, and per-pixel error map
+- [ ] Per-class IoU bar chart is displayed
+- [ ] Full end-to-end: create project → import → train → evaluate visible in UI
+
+---
+
+## Phase 23 — Instance Segmentation
+
+**Goal**: Add instance segmentation, extending segmentation + detection (builds on phases 19–22).
+
+### Deliverables
+
+| Component | Change |
+|-----------|--------|
+| Task definition | `InstanceSegmentationTask` registered in task registry |
+| Models | Mask R-CNN (from torchvision, extends Faster R-CNN with mask head) |
+| Dataset adapter | COCO instance format (polygons + bbox + category_id) |
+| Collate function | Reuse OD collate from Phase 19 |
+| Metrics | mAP (mask IoU), mAP (box IoU) via torchmetrics `iou_type="segm"` |
+| Evaluation pipeline | Per-instance predictions with class, bbox, mask, confidence |
+| Dataset page | Per-instance colored mask overlays (unique color per instance, class-based hue) |
+| Evaluation page | Predicted instance masks (solid) vs ground-truth (dashed outlines), confidence per instance |
 
 ### Acceptance Criteria
 
 - [ ] Instance segmentation project can be created
 - [ ] COCO instance-format dataset can be imported
-- [ ] Per-instance masks render correctly
+- [ ] Per-instance masks render correctly in dataset and evaluation pages
+- [ ] mAP (mask IoU) is computed and displayed
 
 ---
 
-## Phase 22 — DINOv3 Models
+## Phase 24 — DINOv3 Models
 
 **Goal**: Integrate the DINOv3 model family (ConvNeXt and ViT variants) as additional backbone options for classification, detection, and segmentation tasks, sourced from HuggingFace Transformers.
 
@@ -588,7 +617,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 23 — Anomaly Detection
+## Phase 25 — Anomaly Detection
 
 **Goal**: Add the anomaly detection task.
 
@@ -616,7 +645,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 24 — Regression
+## Phase 26 — Regression
 
 **Goal**: Add the regression task.
 
@@ -640,7 +669,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 25 — Oriented Object Detection
+## Phase 27 — Oriented Object Detection
 
 **Goal**: Add oriented object detection, extending the detection foundation.
 
@@ -665,7 +694,7 @@ consecutive, letting you view and test each feature end-to-end before moving on.
 
 ---
 
-## Phase 26 — Polish & Extras
+## Phase 28 — Polish & Extras
 
 **Goal**: Improve usability, add deferred features.
 
@@ -718,14 +747,16 @@ GROUP D — Export
           └── Phase 18 (GUI: Export Page)
 
 GROUP E — Additional Tasks  ── depend on Groups A–D
-  ├── Phase 19 (Object Detection) ── introduces bbox handling
-  ├── Phase 20 (Segmentation) ── introduces mask handling
-  │     └── Phase 21 (Instance Seg) ── extends Phase 19 + 20
-  ├── Phase 22 (DINOv3 Models) ── extends backbone catalog; depends on Phase 8+
-  ├── Phase 23 (Anomaly Detection) ── independent
-  ├── Phase 24 (Regression) ── independent
-  ├── Phase 25 (Oriented OD) ── extends Phase 19
-  └── Phase 26 (Polish) ── can run in parallel with Phases 19–25
+  ├── Phase 19 (OD Core) ── introduces bbox handling
+  │     └── Phase 20 (OD GUI) ── UI overlays for OD
+  ├── Phase 21 (Segmentation Core) ── introduces mask handling
+  │     └── Phase 22 (Segmentation GUI) ── UI overlays for segmentation
+  ├── Phase 23 (Instance Seg) ── extends Phases 19–22; core + GUI combined
+  ├── Phase 24 (DINOv3 Models) ── extends backbone catalog; depends on Phase 8+
+  ├── Phase 25 (Anomaly Detection) ── independent
+  ├── Phase 26 (Regression) ── independent
+  ├── Phase 27 (Oriented OD) ── extends Phase 19
+  └── Phase 28 (Polish) ── can run in parallel with Phases 19–27
 ```
 
 ---
