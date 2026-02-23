@@ -22,6 +22,7 @@ from app.core.training_service import TrainingService
 from app.evaluation.evaluator import Evaluator
 from app.schemas.evaluation import (
     ClassificationAggregateMetrics,
+    ClassificationPerImageResult,
     EvaluationConfig,
     EvaluationProgress,
     EvaluationRecord,
@@ -194,16 +195,7 @@ class EvaluationService:
     ) -> EvaluationResultsPage:
         """Return paginated and filterable per-image evaluation results."""
         self.get_evaluation(project_id, experiment_id)
-        payload = self.store.read(
-            self.paths.experiment_evaluation_results_file(project_id, experiment_id),
-            default={"results": []},
-        )
-        try:
-            results_file = EvaluationResultsFile.model_validate(payload)
-        except PydanticValidationError as exc:
-            raise ValidationError(
-                f"Evaluation results are invalid for experiment '{experiment_id}'."
-            ) from exc
+        results_file = self._load_results_file(project_id, experiment_id)
 
         filtered = results_file.results
         if query.filter_subset is not None:
@@ -235,6 +227,23 @@ class EvaluationService:
             total_items=total_items,
             total_pages=total_pages,
             items=filtered[start:end],
+        )
+
+    def get_result(
+        self,
+        project_id: str,
+        experiment_id: str,
+        filename: str,
+    ) -> ClassificationPerImageResult:
+        """Return one per-image evaluation result by filename."""
+        self.get_evaluation(project_id, experiment_id)
+        safe_filename = self._normalize_result_filename(filename)
+        results_file = self._load_results_file(project_id, experiment_id)
+        for result in results_file.results:
+            if result.filename == safe_filename:
+                return result
+        raise NotFoundError(
+            f"Evaluation result '{safe_filename}' was not found for experiment '{experiment_id}'."
         )
 
     def reset_evaluation(self, project_id: str, experiment_id: str) -> None:
@@ -303,6 +312,26 @@ class EvaluationService:
             update={"progress": EvaluationProgress(processed=processed, total=total)}
         )
         self._write_record(project_id, experiment_id, updated)
+
+    def _load_results_file(self, project_id: str, experiment_id: str) -> EvaluationResultsFile:
+        payload = self.store.read(
+            self.paths.experiment_evaluation_results_file(project_id, experiment_id),
+            default={"results": []},
+        )
+        try:
+            return EvaluationResultsFile.model_validate(payload)
+        except PydanticValidationError as exc:
+            raise ValidationError(
+                f"Evaluation results are invalid for experiment '{experiment_id}'."
+            ) from exc
+
+    def _normalize_result_filename(self, filename: str) -> str:
+        normalized = filename.strip()
+        if not normalized:
+            raise ValidationError("Filename cannot be empty.")
+        if Path(normalized).name != normalized:
+            raise ValidationError("Filename must not contain path separators.")
+        return normalized
 
     def _load_record(self, project_id: str, experiment_id: str) -> EvaluationRecord:
         path = self.paths.experiment_evaluation_metadata_file(project_id, experiment_id)

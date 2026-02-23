@@ -10,6 +10,8 @@ After running evaluation, all per-image predictions are stored in a single `resu
 
 When multiple split subsets are evaluated together (e.g., `["test", "val"]`), all images are pooled into the same `results.json`. Each per-image entry includes a `"subset"` field to identify which subset the image belongs to, enabling filtering by subset in the GUI.
 
+On the Evaluation page, the per-image list stays compact (thumbnail + filename + status + subset). Detailed fields are shown in a modal detail view loaded on demand for a selected filename.
+
 ---
 
 ## 2. Per-Image JSON Schema (by Task)
@@ -170,6 +172,7 @@ The Evaluation page result grid supports:
 - Per-image results are loaded in pages (50 per page, configurable).
 - The API endpoint `/api/evaluation/{project_id}/{experiment_id}/results` accepts `page`, `page_size`, `sort_by`, `filter_*` parameters.
 - The endpoint reads `results.json`, applies filters/sorting in memory, and returns the requested page slice.
+- The detail endpoint `/api/evaluation/{project_id}/{experiment_id}/results/{filename}/info` uses the same query parameters to preserve context and compute previous/next navigation within the current page.
 - `results.json` contains a top-level `"results"` array with one entry per image.
 
 ### `results.json` Structure

@@ -138,10 +138,15 @@ Contents:
 
 Expanded by default when evaluation results exist. Paginated grid of per-image results loaded via HTMX.
 
-- **Thumbnail** with overlay:
-  - ✓ green border = correct prediction.
-  - ✗ red border = incorrect prediction.
-  - Confidence score overlay.
+- **Grid/card style** matches the Dataset page visual density (`dataset-image-grid`, `gap-3`, `h-32` image area, compact metadata).
+- **Thumbnail status**:
+  - ✓ green border + badge = correct prediction.
+  - ✗ red border + badge = incorrect prediction.
+- **List-level metadata only** in card:
+  - Filename
+  - Correct/Incorrect badge
+  - Subset badge
+- Detailed fields (ground truth, prediction, confidence, probabilities) are hidden from the list and shown in the detail view only.
 - **Filters**:
   - All / Correct / Incorrect.
   - By class (ground truth or predicted).
@@ -154,7 +159,7 @@ Expanded by default when evaluation results exist. Paginated grid of per-image r
 
 ### Per-Image Detail View
 
-Clicking an image in the results grid opens a detail view (modal or inline expansion):
+Clicking an image in the results grid opens a **modal** detail view:
 
 ```
 ┌──────────────────────────────────────┐
@@ -178,7 +183,16 @@ Clicking an image in the results grid opens a detail view (modal or inline expan
 └──────────────────────────────────────┘
 ```
 
-For detection tasks: shows predicted boxes (solid, colored) overlaid with ground truth boxes (dashed).
+The modal combines evaluation metadata + dataset metadata:
+- Evaluation: ground truth, prediction, confidence, subset, result.
+- Dataset: image dimensions, class label (if available), annotation count, split assignments.
+- Class probabilities: progress bars (when available) or empty-state text.
+
+Navigation:
+- **Previous/Next** moves within the **currently loaded page** of filtered results.
+- If current item is first/last in the page, corresponding nav button is disabled.
+
+For detection tasks: modal shows predicted boxes (solid, colored) overlaid with ground truth boxes (dashed).
 
 ---
 
@@ -224,6 +238,16 @@ For detection tasks: shows predicted boxes (solid, colored) overlaid with ground
 </div>
 ```
 
+### Per-Image Detail Modal
+```html
+<button
+  @click="detailOpen = true"
+  hx-get="/api/evaluation/{project_id}/{experiment_id}/results/{filename}/info"
+  hx-target="#evaluation-result-detail"
+  hx-swap="innerHTML"
+  hx-include="#evaluation-result-detail-query">
+```
+
 ### Per-Image Grid Pagination
 ```html
 <div hx-get="/api/evaluation/{project_id}/{experiment_id}/results?page=2&filter_correct=true"
@@ -242,6 +266,7 @@ For detection tasks: shows predicted boxes (solid, colored) overlaid with ground
 | `fragments/evaluation_detail.html` | Right panel: top non-collapsible cards + collapsible per-image section |
 | `fragments/evaluation_empty.html` | Right panel empty state |
 | `fragments/evaluation_results_grid.html` | Per-image thumbnail grid (HTMX-loaded) |
+| `fragments/evaluation_result_detail.html` | Modal body for per-image detail (HTMX-loaded) |
 
 ---
 

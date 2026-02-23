@@ -10,7 +10,7 @@ from torch import Tensor, nn
 import app.evaluation.evaluator as evaluator_module
 from app.core.dataset_service import DatasetService
 from app.core.evaluation_service import EvaluationService
-from app.core.exceptions import ConflictError
+from app.core.exceptions import ConflictError, NotFoundError
 from app.core.project_service import ProjectService
 from app.core.split_service import SplitService
 from app.core.training_service import TrainingService
@@ -75,6 +75,13 @@ def test_evaluation_service_start_get_results_and_reset(
     )
     assert page.total_items == 8
     assert all(item.subset == "test" for item in page.items)
+    first_filename = page.items[0].filename
+
+    result = evaluation_service.get_result(project_id, experiment_id, first_filename)
+    assert result.filename == first_filename
+
+    with pytest.raises(NotFoundError, match="was not found"):
+        evaluation_service.get_result(project_id, experiment_id, "missing.png")
 
     assert evaluation_service.list_checkpoints(project_id, experiment_id) == ["best", "last"]
 

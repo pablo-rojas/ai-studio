@@ -149,6 +149,32 @@ def _build_empty_results_page(query: EvaluationResultsQuery) -> dict[str, object
     }
 
 
+def _extract_primary_class_name(annotations: list[dict[str, Any]]) -> str | None:
+    for annotation in annotations:
+        if annotation.get("type") == "label":
+            class_name = annotation.get("class_name")
+            if isinstance(class_name, str) and class_name:
+                return class_name
+
+    for annotation in annotations:
+        if annotation.get("type") == "anomaly":
+            return "anomalous" if bool(annotation.get("is_anomalous")) else "normal"
+
+    return None
+
+
+def _build_split_assignments(
+    *,
+    split_names: list[str],
+    split_values: list[str],
+) -> list[dict[str, str]]:
+    assignments: list[dict[str, str]] = []
+    for index, split_name in enumerate(split_names):
+        if index < len(split_values):
+            assignments.append({"name": split_name, "value": split_values[index]})
+    return assignments
+
+
 def _build_workspace_context(
     *,
     project_id: str,
@@ -278,6 +304,14 @@ def _render_results_fragment(
     return templates.TemplateResponse(request, "fragments/evaluation_results_grid.html", context)
 
 
+def _render_result_detail_fragment(
+    request: Request,
+    context: dict[str, object],
+):
+    templates: Jinja2Templates = request.app.state.templates
+    return templates.TemplateResponse(request, "fragments/evaluation_result_detail.html", context)
+
+
 @router.post("/{project_id}/{experiment_id}")
 async def start_evaluation(
     request: Request,
@@ -393,6 +427,74 @@ async def get_evaluation_results(
             results_page_payload=payload,
         )
     return ok_response(payload)
+
+
+@router.get("/{project_id}/{experiment_id}/results/{filename}/info")
+async def get_evaluation_result_info(
+    request: Request,
+    project_id: str,
+    experiment_id: str,
+    filename: str,
+    evaluation_service: EvaluationServiceDep,
+    dataset_service: DatasetServiceDep,
+) -> dict[str, object]:
+    """Return one per-image evaluation result with dataset metadata."""
+    query = _parse_results_query(request)
+    result = evaluation_service.get_result(project_id, experiment_id, filename)
+    image = dataset_service.get_image_info(project_id, result.filename)
+    dataset = dataset_service.get_dataset(project_id)
+    page = evaluation_service.get_results(project_id, experiment_id, query)
+
+    previous_filename: str | None = None
+    next_filename: str | None = None
+    for index, item in enumerate(page.items):
+        if item.filename != result.filename:
+            continue
+        if index > 0:
+            previous_filename = page.items[index - 1].filename
+        if index + 1 < len(page.items):
+            next_filename = page.items[index + 1].filename
+        break
+
+    result_payload = result.model_dump(mode="json")
+    image_payload = image.model_dump(mode="json")
+    split_assignments = _build_split_assignments(
+        split_names=list(dataset.split_names),
+        split_values=list(image.split),
+    )
+    dataset_class_name = _extract_primary_class_name(image_payload["annotations"])
+    context = {
+        "project_id": project_id,
+        "experiment_id": experiment_id,
+        "result": result_payload,
+        "image": image_payload,
+        "split_assignments": split_assignments,
+        "dataset_class_name": dataset_class_name,
+        "results_query": query.model_dump(mode="json"),
+        "current_page": page.page,
+        "previous_filename": previous_filename,
+        "next_filename": next_filename,
+    }
+
+    if is_hx_request(request):
+        return _render_result_detail_fragment(request, context)
+
+    return ok_response(
+        {
+            "result": result_payload,
+            "image": image_payload,
+            "dataset": {
+                "class_name": dataset_class_name,
+                "annotation_count": len(image_payload["annotations"]),
+                "split_assignments": split_assignments,
+            },
+            "navigation": {
+                "page": page.page,
+                "previous_filename": previous_filename,
+                "next_filename": next_filename,
+            },
+        }
+    )
 
 
 @router.get("/{project_id}/{experiment_id}/checkpoints")

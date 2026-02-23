@@ -528,7 +528,13 @@ async def test_evaluation_page_renders_completed_experiment_workspace_and_result
     assert 'data-eval-cm-col-label="dogs"' in response.text
     assert "P0" not in response.text
     assert "G0" not in response.text
-    assert "Class probabilities" in response.text
+    assert 'id="evaluation-result-detail"' in response.text
+    assert 'x-show="detailOpen"' in response.text
+    assert (
+        f"/api/evaluation/{project_id}/{completed_experiment_id}/results/cat_page_000.png/info"
+        in response.text
+    )
+    assert "Class probabilities" not in response.text
     assert "Reset Evaluation" in response.text
     assert f"/api/evaluation/{project_id}/{completed_experiment_id}" in response.text
     assert f"/api/evaluation/{project_id}/{completed_experiment_id}/results" in response.text

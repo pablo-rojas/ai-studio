@@ -78,6 +78,18 @@ async def test_evaluation_api_end_to_end_flow(
     results_payload = results_response.json()["data"]
     assert results_payload["total_items"] == 4
     assert all(item["subset"] == "test" for item in results_payload["items"])
+    first_filename = results_payload["items"][0]["filename"]
+
+    detail_response = await test_client.get(
+        f"/api/evaluation/{project_id}/{experiment_id}/results/{first_filename}/info",
+        params={"page": 1, "page_size": 10, "filter_subset": "test"},
+    )
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()["data"]
+    assert detail_payload["result"]["filename"] == first_filename
+    assert detail_payload["image"]["filename"] == first_filename
+    assert detail_payload["navigation"]["page"] == 1
+    assert "split_assignments" in detail_payload["dataset"]
 
     checkpoints_response = await test_client.get(
         f"/api/evaluation/{project_id}/{experiment_id}/checkpoints"
@@ -231,7 +243,10 @@ async def test_evaluation_hx_endpoints_render_workspace_and_results_fragments(
     )
     assert results_response.status_code == 200
     assert 'id="evaluation-results-grid"' in results_response.text
-    assert "Class probabilities" in results_response.text
+    assert 'id="evaluation-result-detail-query"' in results_response.text
+    assert "/results/" in results_response.text
+    assert "/info" in results_response.text
+    assert "Class probabilities" not in results_response.text
 
     reset_response = await test_client.delete(
         f"/api/evaluation/{project_id}/{experiment_id}",
@@ -244,6 +259,66 @@ async def test_evaluation_hx_endpoints_render_workspace_and_results_fragments(
         workspace / "projects" / project_id / "experiments" / experiment_id / "evaluation"
     )
     assert not evaluation_dir.exists()
+
+
+@pytest.mark.asyncio
+async def test_evaluation_result_detail_endpoint_supports_hx_and_missing_filename(
+    test_client,
+    workspace: Path,
+    monkeypatch,
+) -> None:
+    project_id = await _create_project(test_client, name="Evaluation Detail Endpoint Project")
+    await _import_dataset_and_split(
+        test_client,
+        workspace,
+        project_id,
+        source_name="evaluation_detail_source",
+    )
+    experiment_id = await _create_experiment(test_client, project_id, name="Detail Baseline")
+    _mark_experiment_completed_and_seed_checkpoints(test_client, project_id, experiment_id)
+
+    monkeypatch.setattr(
+        evaluator_module,
+        "create_model",
+        lambda *args, **kwargs: _AlwaysFirstClassClassifier(),
+    )
+    started = await test_client.post(
+        f"/api/evaluation/{project_id}/{experiment_id}",
+        json={
+            "checkpoint": "best",
+            "split_subsets": ["test"],
+            "batch_size": 8,
+            "device": "cpu",
+        },
+    )
+    assert started.status_code == 200
+
+    results = await test_client.get(
+        f"/api/evaluation/{project_id}/{experiment_id}/results",
+        params={"page": 1, "page_size": 10},
+    )
+    assert results.status_code == 200
+    filename = results.json()["data"]["items"][0]["filename"]
+
+    hx_detail = await test_client.get(
+        f"/api/evaluation/{project_id}/{experiment_id}/results/{filename}/info",
+        params={"page": 1, "page_size": 10},
+        headers={"HX-Request": "true"},
+    )
+    assert hx_detail.status_code == 200
+    assert "Class Probabilities" in hx_detail.text
+    assert "Split Assignments" in hx_detail.text
+    assert "Previous" in hx_detail.text
+    assert "Next" in hx_detail.text
+
+    missing = await test_client.get(
+        f"/api/evaluation/{project_id}/{experiment_id}/results/missing.png/info",
+        params={"page": 1, "page_size": 10},
+    )
+    assert missing.status_code == 404
+    payload = missing.json()
+    assert payload["status"] == "error"
+    assert payload["error"]["code"] == "NOT_FOUND"
 
 
 async def _create_project(test_client, *, name: str) -> str:

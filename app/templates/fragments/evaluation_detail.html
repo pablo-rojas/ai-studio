@@ -12,6 +12,7 @@
 
 <section
   id="evaluation-workspace"
+  x-data="{ detailOpen: false }"
   class="space-y-4"
   data-evaluation-project-id="{{ project_id }}"
   data-evaluation-experiment-id="{{ experiment.id }}"
@@ -341,4 +342,18 @@
       {% include "fragments/evaluation_results_grid.html" %}
     </div>
   </article>
+
+  <div
+    x-show="detailOpen"
+    x-cloak
+    class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4"
+    @click.self="detailOpen = false"
+  >
+    <div class="w-full max-w-4xl rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900 dark:shadow-slate-950/40">
+      <div id="evaluation-result-detail" class="rounded-lg border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
+        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Evaluation Result Detail</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Select a prediction to inspect detailed metadata.</p>
+      </div>
+    </div>
+  </div>
 </section>

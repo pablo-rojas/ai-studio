@@ -148,6 +148,7 @@ Evaluation is **1:1 with an experiment** — each experiment can have at most on
 | `GET` | `/api/evaluation/{project_id}/{experiment_id}` | Get evaluation status + aggregate metrics |
 | `DELETE` | `/api/evaluation/{project_id}/{experiment_id}` | Reset (delete) evaluation data |
 | `GET` | `/api/evaluation/{project_id}/{experiment_id}/results` | Per-image results (paginated) |
+| `GET` | `/api/evaluation/{project_id}/{experiment_id}/results/{filename}/info` | Per-image detail payload (result + dataset metadata + page-local navigation) |
 | `GET` | `/api/evaluation/{project_id}/{experiment_id}/checkpoints` | List available checkpoint files |
 
 ### Query Parameters for Results
@@ -160,6 +161,8 @@ Evaluation is **1:1 with an experiment** — each experiment can have at most on
 | `filter_correct` | bool | — | `true` for correct only, `false` for errors |
 | `filter_class` | string | — | Filter by ground truth class |
 | `filter_subset` | string | — | Filter by split subset (e.g., `"test"`, `"val"`) |
+
+`GET /api/evaluation/{project_id}/{experiment_id}/results/{filename}/info` accepts the same query parameters so the server can compute previous/next navigation within the currently loaded page.
 
 ### `POST /api/evaluation/{project_id}/{experiment_id}` — Start Evaluation
 
